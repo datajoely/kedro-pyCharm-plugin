@@ -1,0 +1,23 @@
+<idea-plugin>
+    <id>org.quantumblack.kedro-helper</id>
+    <name>Kedro Helper</name>
+    <vendor url="http://www.quantumblack.com">QuantumBlack</vendor>
+
+    <description><![CDATA[Helper plugin for working with Kedro projects]]></description>
+
+    <!-- please see https://www.jetbrains.org/intellij/sdk/docs/basics/getting_started/plugin_compatibility.html
+         on how to target different products -->
+    <depends>com.intellij.modules.platform</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- Add your extensions here -->
+    </extensions>
+
+    <actions>
+        <group id="KedroHelper.Orchestrator" text="Kedro">
+            <add-to-group group-id="MainMenu" anchor="last"/>
+            <action class="com.quantumblack.kedro.DetectKedroAction" id="KedroHelper.actions.DetectKedro"
+                    text="Detect"/>
+        </group>
+    </actions>
+</idea-plugin>
