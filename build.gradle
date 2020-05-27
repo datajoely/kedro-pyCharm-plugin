@@ -16,11 +16,28 @@ dependencies {
     testCompile group: 'junit', name: 'junit', version: '4.12'
 }
 
+dependencies {
+    compile group: 'org.yaml', name: 'snakeyaml', version: '1.23'
+}
+
 // See https://github.com/JetBrains/gradle-intellij-plugin/
 intellij {
+    type 'PY'
     version '2020.1.1'
     alternativeIdePath "/Applications/PyCharm.app"
+    plugins 'python'
+    updateSinceUntilBuild false
 }
+
+buildSearchableOptions {
+    enabled = false
+}
+
+buildSearchableOptions {
+    enabled = false
+    apply plugin: 'idea'
+}
+
 compileKotlin {
     kotlinOptions.jvmTarget = "1.8"
 }
