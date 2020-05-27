@@ -8,15 +8,16 @@ import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.search.FilenameIndex
 import com.intellij.util.castSafelyTo
 import com.jetbrains.extensions.python.toPsi
-import com.jetbrains.python.psi.PyAssignmentStatement
-import com.jetbrains.python.psi.PyClass
-import com.jetbrains.python.psi.PyFile
+import com.jetbrains.python.psi.*
 import com.jetbrains.python.psi.impl.PyAssignmentStatementImpl
+
 import org.jetbrains.annotations.NotNull
 import org.yaml.snakeyaml.Yaml
 
 
 class DetectKedroAction : AnAction() {
+    // @todo - Check what happens with multiple open projects
+    private var project:Project? = null
 
 
     override fun actionPerformed(e: AnActionEvent) {
@@ -24,19 +25,24 @@ class DetectKedroAction : AnAction() {
     }
 
     private fun detectKedroProjectFiles() {
-        val project: @NotNull Project = ProjectManager.getInstance().openProjects[0]
-        val pythonFiles: Collection<VirtualFile> = FilenameIndex.getAllFilesByExt(project, "py")
-        val yamlFiles: Collection<VirtualFile> = FilenameIndex.getAllFilesByExt(project, "yml")
+        this.project = ProjectManager.getInstance().openProjects.first()
+        val pythonFiles: Collection<VirtualFile> = getFilesByExt("py")
+        val yamlFiles: Collection<VirtualFile> = getFilesByExt("yml")
         val setupPy: VirtualFile = pythonFiles.findLast { it.name == "setup.py" }!!
         val kedroYml: VirtualFile = yamlFiles.findLast { it.name == ".kedro.yml" }!!
-        val entryPoint: String = getEntryPoint(setupPy, project)
-        val projectContext: PyClass = getProjectContext(entryPoint, pythonFiles, project)
+        val entryPoint: String = getEntryPoint(setupPy)
+        val projectContext: PyClass = getProjectContext(entryPoint, pythonFiles)
         val catalogs: Map<String, String> = getKedroCatalogEntries(yamlFiles)
+        val temp = getKedroNodePythonFiles(pythonFiles)
+        1
         // @todo Suggest kedro generate a file with all of this information available?
         // @todo Custom DataSet detection
         // @todo Autocomplete Node input/output
         // @todo get org.jetbrains.plugins.yaml working
     }
+
+    private fun getFilesByExt(ext:String): @NotNull MutableCollection<VirtualFile> =
+        FilenameIndex.getAllFilesByExt(this.project!!, ext)
 
     private fun getKedroCatalogEntries(yamlFiles: Collection<VirtualFile>): Map<String, String> {
         val snakeYaml = Yaml()
@@ -55,13 +61,16 @@ class DetectKedroAction : AnAction() {
     }
 
 
-    private fun getProjectContext(entryPoint: String, pythonFiles:Collection<VirtualFile>, project: Project): PyClass {
+    private fun getProjectContext(
+        entryPoint: String,
+        pythonFiles: Collection<VirtualFile>
+    ): PyClass {
         val runFileName: String =  entryPoint.split(delimiters = *charArrayOf(':'))
             .first()
             .split(delimiters = *charArrayOf('.')).last()
 
         val virtualRunFile: VirtualFile =  pythonFiles.findLast { it.name == "$runFileName.py" }!!
-        val pyRunFile:PyFile = parsePythonFile(virtualRunFile, project)
+        val pyRunFile:PyFile = parsePythonFile(virtualRunFile)
         return pyRunFile.findTopLevelClass("ProjectContext")!!
 
     }
@@ -72,9 +81,9 @@ class DetectKedroAction : AnAction() {
         return group["context_path"].toString()
     }
 
-    private fun getEntryPoint(setupPy: VirtualFile, project: Project): String {
+    private fun getEntryPoint(setupPy: VirtualFile): String {
 
-        val pythonFile: PyFile = parsePythonFile(setupPy, project)
+        val pythonFile: PyFile = parsePythonFile(setupPy)
         val assignment: PyAssignmentStatementImpl = (
                     pythonFile
                         .statements
@@ -92,11 +101,24 @@ class DetectKedroAction : AnAction() {
 
     }
 
-    private fun parsePythonFile(
-        dotPyFile: VirtualFile,
-        project: Project
-    ): PyFile {
-        return dotPyFile.toPsi(project)!! as PyFile
+    private fun getKedroNodePythonFiles(pythonFiles: Collection<VirtualFile>): List<PyFile> {
+        return pythonFiles.map{parsePythonFile(it)}.filter { fileImportsKedroNode(it) }.distinct()
+    }
+
+    private fun fileImportsKedroNode(pythonFile: PyFile): Boolean {
+        val kedroNodePresent:Boolean
+        kedroNodePresent = pythonFile.importBlock
+            .map { import: PyImportStatementBase -> import.importElements.map { it.context?.text } }
+            .flatten()
+            .any { it?.contains(other = "node", ignoreCase = true)!! and
+                    it.contains(other = "kedro", ignoreCase = true)
+            }
+
+        return kedroNodePresent
+    }
+
+    private fun parsePythonFile(dotPyFile: VirtualFile): PyFile {
+        return dotPyFile.toPsi(this.project!!)!! as PyFile
     }
 
 
