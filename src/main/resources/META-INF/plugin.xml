@@ -3,11 +3,13 @@
     <name>Kedro Helper</name>
     <vendor url="http://www.quantumblack.com">QuantumBlack</vendor>
 
-    <description><![CDATA[Helper plugin for working with Kedro projects]]></description>
+    <description>Helper plugin for working with Kedro projects</description>
 
     <!-- please see https://www.jetbrains.org/intellij/sdk/docs/basics/getting_started/plugin_compatibility.html
          on how to target different products -->
     <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.modules.lang</depends>
+    <depends>com.intellij.modules.python</depends>
 
     <extensions defaultExtensionNs="com.intellij">
         <!-- Add your extensions here -->
