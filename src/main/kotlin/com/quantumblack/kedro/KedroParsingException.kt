@@ -1,5 +1,3 @@
 package com.quantumblack.kedro
 
-class KedroParsingException(s: String, i: Int) : Throwable() {
-
-}
+class KedroParsingException(message: String) : Exception(message)
