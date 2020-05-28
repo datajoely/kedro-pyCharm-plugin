@@ -34,7 +34,7 @@ class DetectKedroAction : AnAction() {
         val projectContext: PyClass = getProjectContext(entryPoint, pythonFiles)
         val catalogs: Map<String, String> = getKedroCatalogEntries(yamlFiles)
         val temp = getKedroNodePythonFiles(pythonFiles)
-        1
+
         // @todo Suggest kedro generate a file with all of this information available?
         // @todo Custom DataSet detection
         // @todo Autocomplete Node input/output
@@ -92,7 +92,7 @@ class DetectKedroAction : AnAction() {
                 )
 
         if (assignment.targets.first().text != "entry_point"){
-            throw KedroParsingException("Unable to retrieve `entry point` from `setup.py`", 0)
+            throw KedroParsingException("Unable to retrieve `entry point` from `setup.py`")
         }
 
         val entryPoint: String = assignment.assignedValue!!.children.first().text
