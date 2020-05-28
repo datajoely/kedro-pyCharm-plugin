@@ -36,9 +36,7 @@ class DetectKedroAction : AnAction() {
         val temp = getKedroNodePythonFiles(pythonFiles)
 
         // @todo Suggest kedro generate a file with all of this information available?
-        // @todo Custom DataSet detection
-        // @todo Autocomplete Node input/output
-        // @todo get org.jetbrains.plugins.yaml working
+
     }
 
     private fun getFilesByExt(ext:String): @NotNull MutableCollection<VirtualFile> =
