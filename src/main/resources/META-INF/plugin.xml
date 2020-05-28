@@ -13,14 +13,24 @@
     <depends>org.jetbrains.plugins.yaml</depends>
 
     <extensions defaultExtensionNs="com.intellij">
-        <!-- Add your extensions here -->
+        <completion.contributor
+                language="Python"
+                implementationClass="com.quantumblack.kedro.KedroNodeClassAutoComplete"
+
+
+        />
+
     </extensions>
 
     <actions>
         <group id="KedroHelper.Orchestrator" text="Kedro">
             <add-to-group group-id="MainMenu" anchor="last"/>
-            <action class="com.quantumblack.kedro.DetectKedroAction" id="KedroHelper.actions.DetectKedro"
-                    text="Detect"/>
+            <action
+                    class="com.quantumblack.kedro.DetectKedroAction"
+                    id="KedroHelper.actions.DetectKedro"
+                    text="Detect"
+                    icon="/icons/kedroIcon.svg"
+            />
         </group>
     </actions>
 </idea-plugin>
