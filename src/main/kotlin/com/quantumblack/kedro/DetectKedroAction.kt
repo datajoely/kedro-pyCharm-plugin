@@ -8,17 +8,17 @@ import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.search.FilenameIndex
 import com.intellij.util.castSafelyTo
 import com.jetbrains.extensions.python.toPsi
-import com.jetbrains.python.psi.*
+import com.jetbrains.python.psi.PyAssignmentStatement
+import com.jetbrains.python.psi.PyClass
+import com.jetbrains.python.psi.PyFile
+import com.jetbrains.python.psi.PyImportStatementBase
 import com.jetbrains.python.psi.impl.PyAssignmentStatementImpl
-
 import org.jetbrains.annotations.NotNull
 import org.yaml.snakeyaml.Yaml
 
-
 class DetectKedroAction : AnAction() {
     // @todo - Check what happens with multiple open projects
-    private var project:Project? = null
-
+    private var project: Project? = null
 
     override fun actionPerformed(e: AnActionEvent) {
         detectKedroProjectFiles()
@@ -36,10 +36,9 @@ class DetectKedroAction : AnAction() {
         val temp = getKedroNodePythonFiles(pythonFiles)
 
         // @todo Suggest kedro generate a file with all of this information available?
-
     }
 
-    private fun getFilesByExt(ext:String): @NotNull MutableCollection<VirtualFile> =
+    private fun getFilesByExt(ext: String): @NotNull MutableCollection<VirtualFile> =
         FilenameIndex.getAllFilesByExt(this.project!!, ext)
 
     private fun getKedroCatalogEntries(yamlFiles: Collection<VirtualFile>): Map<String, String> {
@@ -50,7 +49,7 @@ class DetectKedroAction : AnAction() {
             .flatten<Any?>() // Flatten list of lists
             .map { it.castSafelyTo<Map<String, Map<String, String>>>()!! } // Collapse into one Map
             .asSequence()
-            .flatMap {it.asSequence()}
+            .flatMap { it.asSequence() }
             .filter { !it.key.startsWith(char = '_') } // Remove anchors
             .groupingBy(keySelector = { it.key }) // Group by distinct keys
             .fold(initialValue = "") { _: String, (_: String, item: Map<String, String>) ->
@@ -58,19 +57,17 @@ class DetectKedroAction : AnAction() {
             }
     }
 
-
     private fun getProjectContext(
         entryPoint: String,
         pythonFiles: Collection<VirtualFile>
     ): PyClass {
-        val runFileName: String =  entryPoint.split(delimiters = *charArrayOf(':'))
+        val runFileName: String = entryPoint.split(delimiters = *charArrayOf(':'))
             .first()
             .split(delimiters = *charArrayOf('.')).last()
 
-        val virtualRunFile: VirtualFile =  pythonFiles.findLast { it.name == "$runFileName.py" }!!
-        val pyRunFile:PyFile = parsePythonFile(virtualRunFile)
+        val virtualRunFile: VirtualFile = pythonFiles.findLast { it.name == "$runFileName.py" }!!
+        val pyRunFile: PyFile = parsePythonFile(virtualRunFile)
         return pyRunFile.findTopLevelClass("ProjectContext")!!
-
     }
 
     private fun getContextLocation(kedroYml: VirtualFile): String {
@@ -89,22 +86,21 @@ class DetectKedroAction : AnAction() {
                         .first() as PyAssignmentStatementImpl
                 )
 
-        if (assignment.targets.first().text != "entry_point"){
+        if (assignment.targets.first().text != "entry_point") {
             throw KedroParsingException("Unable to retrieve `entry point` from `setup.py`")
         }
 
         val entryPoint: String = assignment.assignedValue!!.children.first().text
         val split: List<String> = entryPoint.split(regex = Regex(pattern = "\\s+=\\s+"))
         return split.last()
-
     }
 
     private fun getKedroNodePythonFiles(pythonFiles: Collection<VirtualFile>): List<PyFile> {
-        return pythonFiles.map{parsePythonFile(it)}.filter { fileImportsKedroNode(it) }.distinct()
+        return pythonFiles.map { parsePythonFile(it) }.filter { fileImportsKedroNode(it) }.distinct()
     }
 
     private fun fileImportsKedroNode(pythonFile: PyFile): Boolean {
-        val kedroNodePresent:Boolean
+        val kedroNodePresent: Boolean
         kedroNodePresent = pythonFile.importBlock
             .map { import: PyImportStatementBase -> import.importElements.map { it.context?.text } }
             .flatten()
@@ -116,8 +112,6 @@ class DetectKedroAction : AnAction() {
     }
 
     private fun parsePythonFile(dotPyFile: VirtualFile): PyFile {
-        return dotPyFile.toPsi(this.project!!)!! as PyFile
+        return this.project?.let { dotPyFile.toPsi(it) } as PyFile
     }
-
-
 }
