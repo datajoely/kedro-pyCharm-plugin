@@ -16,8 +16,7 @@
         <completion.contributor
                 language="Python"
                 implementationClass="com.quantumblack.kedro.KedroNodeClassAutoComplete"
-
-
+                order="first"
         />
 
     </extensions>
