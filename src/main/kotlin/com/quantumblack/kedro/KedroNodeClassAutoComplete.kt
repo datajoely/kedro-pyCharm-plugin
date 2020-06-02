@@ -44,9 +44,9 @@ class KedroNodeClassAutoComplete : CompletionContributor() {
                         val calleeExpression: @Nullable PyExpression? = call.callee
                         if (calleeExpression is PyReferenceExpression) {
 
-                            val isKedroNodeInputOutputExpression: Boolean = detectKedroNodeInputOutputExpression(
-                                parameters
-                            )
+                            val isKedroNodeInputOutputExpression: Boolean =
+                                detectKedroNodeInputOutputKwargs(parameters) ||
+                                            detectKedroNodeInputOutputArgs(call, parameters)
 
                             if (isKedroNodeCall(calleeExpression) && isKedroNodeInputOutputExpression) {
                                 val catalogManager = KedroDataCatalogManager(call.project, icon)
@@ -63,7 +63,7 @@ class KedroNodeClassAutoComplete : CompletionContributor() {
                     )
                 }
 
-                private fun detectKedroNodeInputOutputExpression(
+                private fun detectKedroNodeInputOutputKwargs(
                     parameters: @NotNull CompletionParameters
                 ): Boolean {
 
@@ -83,8 +83,20 @@ class KedroNodeClassAutoComplete : CompletionContributor() {
                             ?.reference // Get the the parameter reference
                             ?.canonicalText // Get the  text equivalent
                             ?.contains(Regex(pattern = "inputs|outputs")) ?: false
-                        // todo argument position 1 or 2
                     }
+                }
+
+                private fun detectKedroNodeInputOutputArgs(call: PyCallExpression, parameters: CompletionParameters):
+                        Boolean {
+                    val txtArgs: List<String> = call.arguments.mapNotNull { it.text }
+                    val currentArg: String? = parameters.originalPosition?.text?.trim()
+                    val argIndex: Int = txtArgs.indexOf(currentArg)
+                    val isWithinArgIndex: Boolean = argIndex in arrayOf(1, 2)
+                    val isEmptyArgString: Boolean = ( // Case where arg not typed out yet
+                            currentArg == "" && call.argumentList?.arguments?.size in arrayOf(1,2)
+                            )
+                    return isWithinArgIndex || isEmptyArgString
+
                 }
             }
         )
