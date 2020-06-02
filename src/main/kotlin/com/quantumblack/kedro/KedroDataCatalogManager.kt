@@ -7,13 +7,13 @@ import com.intellij.psi.PsiManager
 import com.intellij.psi.search.FilenameIndex
 import com.intellij.psi.search.GlobalSearchScope
 import com.jetbrains.extensions.getQName
+import javax.swing.Icon
 import org.jetbrains.annotations.NotNull
 import org.jetbrains.yaml.YAMLFileType
 import org.jetbrains.yaml.YAMLUtil
 import org.jetbrains.yaml.psi.YAMLFile
 import org.jetbrains.yaml.psi.YAMLKeyValue
 import org.jetbrains.yaml.psi.impl.YAMLMappingImpl
-import javax.swing.Icon
 
 data class KedroDataSet(
     val name: String,
