@@ -2,7 +2,6 @@
     <id>org.quantumblack.kedro-helper</id>
     <name>Kedro Helper</name>
     <vendor url="http://www.quantumblack.com">QuantumBlack</vendor>
-
     <description>Helper plugin for working with Kedro projects</description>
 
     <!-- please see https://www.jetbrains.org/intellij/sdk/docs/basics/getting_started/plugin_compatibility.html
@@ -19,6 +18,11 @@
                 order="first"
         />
 
+        <psi.referenceContributor
+                language="Python"
+                implementation="com.quantumblack.kedro.KedroDataCatalogReference"
+            />
+
     </extensions>
 
     <actions>
@@ -28,7 +32,7 @@
                     class="com.quantumblack.kedro.DetectKedroAction"
                     id="KedroHelper.actions.DetectKedro"
                     text="Detect"
-                    icon="/icons/kedroIcon.svg"
+                    icon="/icons/pluginIcon.svg"
             />
         </group>
     </actions>
