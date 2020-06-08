@@ -1,12 +1,26 @@
 package com.quantumblack.kedro
 
 import com.intellij.patterns.PlatformPatterns
-import com.intellij.psi.*
+import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiReferenceBase
+import com.intellij.psi.PsiReferenceContributor
+import com.intellij.psi.PsiReferenceProvider
+import com.intellij.psi.PsiReferenceRegistrar
+
 import com.intellij.util.ProcessingContext
+import com.intellij.util.castSafelyTo
 import com.jetbrains.python.psi.PyStringLiteralExpression
 
+/**
+ * This class provides references to the PyCharm lookup
+ */
 class KedroDataCatalogReference : PsiReferenceContributor() {
-
+    /**
+     * Overriding this function scans elements which are PyStringLiteralExpressions and attempts
+     * to add references to Kedro data catalog entries in the appropriate places
+     *
+     * @param registrar The custom reference provider
+     */
     override fun registerReferenceProviders(registrar: PsiReferenceRegistrar) {
         registrar.registerReferenceProvider(
             PlatformPatterns.psiElement(PyStringLiteralExpression::class.java),
@@ -15,11 +29,23 @@ class KedroDataCatalogReference : PsiReferenceContributor() {
     }
 }
 
+/**
+ * This class creates a reference provider which detects if the reference is Kedro catalog entry
+ * and returns the appropriate YAML KeyValue
+ */
 class KedroReferenceProvider : PsiReferenceProvider() {
-    override fun getReferencesByElement(element: PsiElement, context: ProcessingContext): Array<KedroYamlRef> {
-
-        if (KedroUtilities.isKedroNodeCatalogItem(element)) {
-            val references: Array<KedroYamlRef> = arrayOf(KedroYamlRef(element))
+    /**
+     * Thus function analyses the element in question and provides an array of references to
+     * the various YAML KeyValue that can map to each string
+     *
+     * @param element The element being scanned by the IDE
+     * @param context The processing context at hand
+     * @return An array of 0 or 1 `KedroYamlReference` objects that map to the
+     * `PyStringLiteralExpression` being scanned
+     */
+    override fun getReferencesByElement(element: PsiElement, context: ProcessingContext): Array<KedroYamlReference> {
+        if (KedroUtilities.isKedroNodeCatalogParam(element)) {
+            val references: Array<KedroYamlReference> = arrayOf(KedroYamlReference(element))
             if (references.isNotEmpty()) {
                 return references
             }
@@ -28,16 +54,34 @@ class KedroReferenceProvider : PsiReferenceProvider() {
     }
 }
 
-class KedroYamlRef(element: PsiElement) : PsiReferenceBase<PsiElement>(element) {
+/**
+ * This class retrieves the the Kedro data catalog items and provides a mechanism for resolving them
+ * given the PSI element provided
+ *
+ * @constructor Is inherited from the PsIReferenceBase class
+ * @param element The element to match against the Kedro data catalog datasets available
+ */
+class KedroYamlReference(element: PsiElement) : PsiReferenceBase<PsiElement>(element) {
 
+    /**
+     * This function retrieves the string contents of the `PyStringLiteralExpression` and compares
+     * it to the list of data set names provided by the `KedroDataCatalogManager` singleton
+     *
+     * @return The PSI element of the `KedroDataSet` object in question
+     */
     private fun getYamlDataSetReference(): List<PsiElement> {
-        val dataSetName: String = (element as PyStringLiteralExpression)
-            .text.replace(Regex(pattern = "[\"']"), replacement = "") // remove quotes and get the YAML key
-        val dataSets: List<KedroDataSet> = KedroDataCatalogManager.getKedroDataSets() // Get YAML references
-        val references: List<KedroDataSet> = dataSets.filter { it.name == dataSetName } // Match the catalog entry
-        return references.map { it.reference.node.psi }
+        val dataSetName: String = element.castSafelyTo<PyStringLiteralExpression>()
+            ?.text
+            ?.replace(Regex(pattern = "[\"']"), replacement = "") ?: ""
+        val refs: List<KedroDataSet> = KedroDataCatalogManager.getKedroDataSets().filter { it.name == dataSetName }
+        return refs.map { it.psiItem.node.psi }
     }
 
+    /**
+     * This function resolves the `PyStringLiteralExpression` to the relevant YAML KeyValue
+     *
+     * @return The YAML KeyValue reference or null
+     */
     override fun resolve(): PsiElement? {
         return getYamlDataSetReference().firstOrNull()
     }

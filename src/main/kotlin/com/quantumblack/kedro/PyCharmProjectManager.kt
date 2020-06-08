@@ -8,10 +8,17 @@ import com.intellij.psi.search.GlobalSearchScope
 import org.jetbrains.yaml.YAMLFileType
 import java.util.concurrent.TimeoutException
 
-object PyCharmProjectManager { // Singleton
+// Provide Singleton object for the `PyCharmProjectManager`
+object PyCharmProjectManager {
 
     internal var project: Project? = getProject()
 
+    /**
+     * This function attempts to retrieve the project instance which depending on the
+     * PyCharm status may not yet be available
+     *
+     * @return The PyCharm project or null
+     */
     private fun getProject(): Project? {
 
         return try {
@@ -24,7 +31,13 @@ object PyCharmProjectManager { // Singleton
         }
     }
 
-    fun getScope(project: Project): GlobalSearchScope {
+    /**
+     * This function provides a Scope object which is limited to project based YAML files
+     *
+     * @param project The project to work with
+     * @return The scope object limited appropriately
+     */
+    fun getYamlScope(project: Project): GlobalSearchScope {
         return GlobalSearchScope.getScopeRestrictedByFileTypes(
             GlobalSearchScope.allScope(project),
             YAMLFileType.YML
