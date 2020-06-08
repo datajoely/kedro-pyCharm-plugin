@@ -23,7 +23,7 @@ import org.jetbrains.annotations.Nullable
 
 class KedroNodeClassAutoComplete : CompletionContributor() {
     init {
-        val icon: Icon = IconLoader.getIcon("/icons/kedroIcon_dark.svg")
+        val icon: Icon = IconLoader.getIcon("/icons/pluginIcon_dark.svg")
         extend(
             CompletionType.BASIC,
             PlatformPatterns.psiElement().withLanguage(PythonLanguage.INSTANCE),
@@ -93,10 +93,9 @@ class KedroNodeClassAutoComplete : CompletionContributor() {
                     val argIndex: Int = txtArgs.indexOf(currentArg)
                     val isWithinArgIndex: Boolean = argIndex in arrayOf(1, 2)
                     val isEmptyArgString: Boolean = ( // Case where arg not typed out yet
-                            currentArg == "" && call.argumentList?.arguments?.size in arrayOf(1,2)
+                            currentArg == "" && call.argumentList?.arguments?.size in arrayOf(1, 2)
                             )
                     return isWithinArgIndex || isEmptyArgString
-
                 }
             }
         )
