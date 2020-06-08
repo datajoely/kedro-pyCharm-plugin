@@ -27,14 +27,13 @@ data class KedroDataSet(
         }
 }
 
-object KedroDataCatalogManager // Declare as singleton
-{
+object KedroDataCatalogManager {
     private val icon: Icon = IconLoader.getIcon("/icons/pluginIcon_dark.svg")
     private val project: Project? = PyCharmProjectManager.project
 
     fun getKedroDataSets(): List<KedroDataSet> {
 
-        if (project != null){
+        if (project != null) {
             val projectYamlFiles: Sequence<VirtualFile> = getProjectCatalogYamlFiles()
             return projectYamlFiles
                 .map { PsiManager.getInstance(project).findFile(it) as? YAMLFile }
@@ -94,8 +93,9 @@ object KedroDataCatalogManager // Declare as singleton
             .withCaseSensitivity(false)
             .withIcon(this.icon)
             .withTypeText(dataSet.type)
+            .withTypeText(dataSet.type.split(delimiters = *charArrayOf('.')).last())
             .withLookupString(dataSet.name)
-            .withLookupString(dataSet.type)
+            .withLookupString("kedro")
             .withTailText(dataSet.formattedLocation)
     }
 
