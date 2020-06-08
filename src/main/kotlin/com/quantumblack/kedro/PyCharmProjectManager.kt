@@ -15,7 +15,9 @@ object PyCharmProjectManager { // Singleton
     private fun getProject(): Project? {
 
         return try {
-            val dataContext: DataContext? = DataManager.getInstance().dataContextFromFocusAsync.blockingGet(2000)
+            val dataContext: DataContext? = DataManager.getInstance()
+                .dataContextFromFocusAsync
+                .blockingGet(2_000)
             dataContext?.getData(PlatformDataKeys.PROJECT)
         } catch (e: TimeoutException) {
             null
@@ -28,6 +30,4 @@ object PyCharmProjectManager { // Singleton
             YAMLFileType.YML
         )
     }
-
-
 }
