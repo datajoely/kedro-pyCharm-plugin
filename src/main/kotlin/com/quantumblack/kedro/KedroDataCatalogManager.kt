@@ -2,24 +2,23 @@ package com.quantumblack.kedro
 
 import com.intellij.codeInsight.lookup.LookupElementBuilder
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.util.IconLoader
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiManager
 import com.intellij.psi.search.FilenameIndex
-import com.intellij.psi.search.GlobalSearchScope
 import com.jetbrains.extensions.getQName
-import javax.swing.Icon
 import org.jetbrains.annotations.NotNull
-import org.jetbrains.yaml.psi.impl.YAMLMappingImpl
+import org.jetbrains.yaml.YAMLUtil
 import org.jetbrains.yaml.psi.YAMLFile
 import org.jetbrains.yaml.psi.YAMLKeyValue
-import org.jetbrains.yaml.YAMLFileType
-import org.jetbrains.yaml.YAMLUtil
+import org.jetbrains.yaml.psi.impl.YAMLMappingImpl
+import javax.swing.Icon
 
 data class KedroDataSet(
     val name: String,
     val type: String,
     val location: String,
-    val reference: YAMLKeyValue, // this.reference.navigateTo() will jump to reference
+    val reference: YAMLKeyValue, // this is used to map references
     val layer: String = ""
 ) {
     val formattedLocation: String
@@ -28,31 +27,39 @@ data class KedroDataSet(
         }
 }
 
-class KedroDataCatalogManager(
-    private val project: Project,
-    private val icon: Icon? = null
-) {
+object KedroDataCatalogManager // Declare as singleton
+{
+    private val icon: Icon = IconLoader.getIcon("/icons/pluginIcon_dark.svg")
+    private val project: Project? = PyCharmProjectManager.project
 
     fun getKedroDataSets(): List<KedroDataSet> {
 
-        val scope: GlobalSearchScope = GlobalSearchScope.getScopeRestrictedByFileTypes(
-            GlobalSearchScope.allScope(project),
-            YAMLFileType.YML
-        )
-        val catalogChecks: List<String> = arrayOf(project.basePath, "conf", "catalog").filterNotNull()
-        val extensions: List<String> = listOf("yml", "yaml")
+        if (project != null){
+            val projectYamlFiles: Sequence<VirtualFile> = getProjectCatalogYamlFiles()
+            return projectYamlFiles
+                .map { PsiManager.getInstance(project).findFile(it) as? YAMLFile }
+                .toList()
+                .filterNotNull()
+                .map { extractKedroYamlDataSet(it) }
+                .flatten()
+        }
+        return listOf()
+    }
 
-        return extensions
-            .asSequence()
-            .map { FilenameIndex.getAllFilesByExt(project, it, scope) }
-            .flatten<VirtualFile?>()
-            .filterNotNull()
-            .filter { vf: VirtualFile -> catalogChecks.all { vf.path.contains(it) } }
-            .map { PsiManager.getInstance(project).findFile(it) as? YAMLFile }
-            .toList()
-            .filterNotNull()
-            .map { extractKedroYamlDataSet(it) }
-            .flatten()
+    private fun getProjectCatalogYamlFiles(): Sequence<VirtualFile> {
+        if (project != null) {
+
+            val isWithinProject: List<String> = arrayOf(project.basePath, "conf", "catalog").filterNotNull()
+            val extensions: List<String> = listOf("yml", "yaml")
+
+            return extensions
+                .asSequence()
+                .map { FilenameIndex.getAllFilesByExt(project, it, PyCharmProjectManager.getScope(project)) }
+                .flatten<VirtualFile?>()
+                .filterNotNull()
+                .filter { vf: VirtualFile -> isWithinProject.all { vf.path.contains(it) } }
+        }
+        return sequenceOf()
     }
 
     private fun extractKedroYamlDataSet(yml: YAMLFile): List<KedroDataSet> {

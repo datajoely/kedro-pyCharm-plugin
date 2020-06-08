@@ -41,7 +41,7 @@ class KedroYamlRef(element: PsiElement) : PsiReferenceBase<PsiElement>(element) 
     private fun getYamlDataSetReference(): List<PsiElement> {
         val dataSetName: String = (element as PyStringLiteralExpression)
             .text.replace(Regex(pattern = "[\"']"),replacement = "") // remove quotes and get the YAML key
-        val dataSets: List<KedroDataSet> = KedroDataCatalogManager(element.project).getKedroDataSets() // Get YAML references
+        val dataSets: List<KedroDataSet> = KedroDataCatalogManager.getKedroDataSets() // Get YAML references
         val references: List<KedroDataSet> =  dataSets.filter { it.name == dataSetName } // Match the catalog entry
         return references.map{it.reference.node.psi}
     }

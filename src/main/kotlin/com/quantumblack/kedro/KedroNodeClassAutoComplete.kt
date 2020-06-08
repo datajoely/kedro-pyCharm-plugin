@@ -1,29 +1,19 @@
 package com.quantumblack.kedro
 
-import com.intellij.codeInsight.completion.CompletionContributor
-import com.intellij.codeInsight.completion.CompletionParameters
-import com.intellij.codeInsight.completion.CompletionProvider
-import com.intellij.codeInsight.completion.CompletionResultSet
-import com.intellij.codeInsight.completion.CompletionType
-import com.intellij.openapi.util.IconLoader
+import com.intellij.codeInsight.completion.*
 import com.intellij.patterns.PlatformPatterns
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.util.ProcessingContext
 import com.jetbrains.python.PythonLanguage
-import com.jetbrains.python.psi.PyCallExpression
-import com.jetbrains.python.psi.PyExpression
-import com.jetbrains.python.psi.PyListLiteralExpression
-import com.jetbrains.python.psi.PyReferenceExpression
-import com.jetbrains.python.psi.PyStringLiteralExpression
+import com.jetbrains.python.psi.*
 import com.jetbrains.python.psi.impl.PyReferenceExpressionImpl
 import com.jetbrains.python.psi.impl.PyStringLiteralExpressionImpl
-import javax.swing.Icon
 import org.jetbrains.annotations.NotNull
 import org.jetbrains.annotations.Nullable
 
 class KedroNodeClassAutoComplete : CompletionContributor() {
     init {
-        val icon: Icon = IconLoader.getIcon("/icons/pluginIcon_dark.svg")
+
         extend(
             CompletionType.BASIC,
             PlatformPatterns.psiElement().withLanguage(PythonLanguage.INSTANCE),
@@ -49,8 +39,7 @@ class KedroNodeClassAutoComplete : CompletionContributor() {
                                             detectKedroNodeInputOutputArgs(call, parameters)
 
                             if (isKedroNodeCall(calleeExpression) && isKedroNodeInputOutputExpression) {
-                                val catalogManager = KedroDataCatalogManager(call.project, icon)
-                                resultSet.addAllElements(catalogManager.getKedroDataSetSuggestions())
+                                resultSet.addAllElements(KedroDataCatalogManager.getKedroDataSetSuggestions())
                             }
                         }
                     }
