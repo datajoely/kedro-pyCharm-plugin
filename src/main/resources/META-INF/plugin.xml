@@ -17,23 +17,9 @@
                 implementationClass="com.quantumblack.kedro.KedroNodeClassAutoComplete"
                 order="first"
         />
-
         <psi.referenceContributor
                 language="Python"
                 implementation="com.quantumblack.kedro.KedroDataCatalogReference"
             />
-
     </extensions>
-
-    <actions>
-        <group id="KedroHelper.Orchestrator" text="Kedro">
-            <add-to-group group-id="MainMenu" anchor="last"/>
-            <action
-                    class="com.quantumblack.kedro.DetectKedroAction"
-                    id="KedroHelper.actions.DetectKedro"
-                    text="Detect"
-                    icon="/icons/pluginIcon.svg"
-            />
-        </group>
-    </actions>
 </idea-plugin>
