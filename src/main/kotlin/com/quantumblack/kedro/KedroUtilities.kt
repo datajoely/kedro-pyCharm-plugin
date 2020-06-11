@@ -1,10 +1,8 @@
 package com.quantumblack.kedro
 
 import com.intellij.psi.PsiElement
-import com.intellij.psi.util.parentOfType
-import com.intellij.util.castSafelyTo
+import com.intellij.psi.util.*
 import com.jetbrains.python.psi.PyCallExpression
-import com.jetbrains.python.psi.impl.PyArgumentListImpl
 
 /**
  * This class exposes a way of detecting Kedro catalog params
@@ -18,34 +16,46 @@ object KedroUtilities {
      * @return True if element within Node/node call and the relevant parameters
      */
     fun isKedroNodeCatalogParam(element: PsiElement?): Boolean {
-        /**
-         * This function detects if the element passed in refers to either the
-         * `input` or `output` param
-         *
-         * @param referenceElement the element which is likely within the Node constructor or
-         * node function
-         * @return True if part of the input/output parameter within function/constructor call
-         */
-        fun isInputOutputKwarg(referenceElement: PsiElement?): Boolean {
 
-            return referenceElement?.reference
-                ?.canonicalText
-                ?.contains(Regex(pattern = "(in|out)puts")) ?: false
-        }
-
-        val nodeCall: Boolean = element?.parentOfType<PyCallExpression>()
+        val isKedroNodeCall: Boolean = element?.parentOfType<PyCallExpression>()
             ?.callee
             ?.name
             ?.contains(other = "node", ignoreCase = true) ?: false
 
-        val inputOutputKwargsIterable: Boolean = isInputOutputKwarg(element?.parent?.parent)
-        val inputOutputKwargsLiteral: Boolean = isInputOutputKwarg(element?.parent)
+        if (isKedroNodeCall) {
 
-        val inputOutputArgs: Boolean = element?.parent.castSafelyTo<PyArgumentListImpl>()
-            ?.arguments
-            ?.map { it.text }
-            ?.indexOf(element?.text) in arrayOf(1, 2)
+            val argListTypeString = "Py:ARGUMENT_LIST"
+            val argListObject: PsiElement? = element
+                ?.parents
+                ?.takeWhile { it.elementType.toString() != argListTypeString }
+                ?.lastOrNull()
+                ?: if (element?.parent.elementType.toString() == argListTypeString) element else null
 
-        return nodeCall && (inputOutputKwargsIterable || inputOutputKwargsLiteral || inputOutputArgs)
+            if (argListObject != null) {
+
+                val isInputOutputArg: Boolean = argListObject // Positionally 2nd, 3rd argument
+                    .siblings(forward = false)
+                    .toList()
+                    .filter { it.elementType.toString() == "Py:COMMA" }
+                    .size in arrayOf(1, 2)
+
+
+                val isInputOutputKwargs: Boolean = element // Detect input/output kwarg, possibly out of order
+                    ?.parents
+                    ?.withIndex()
+                    ?.filter{(i: Int,v: PsiElement) ->  // Kwarg up to levels above  (one level for string, two for iterable)
+                        (i < 2)  && (v.elementType.toString() == "Py:KEYWORD_ARGUMENT_EXPRESSION")
+                    }
+                    ?.firstOrNull()
+                    ?.value
+                    ?.reference
+                    ?.canonicalText
+                    ?.contains(Regex(pattern = "(in|out)puts")) ?: false
+
+                return isInputOutputArg || isInputOutputKwargs
+            }
+        }
+
+        return false
     }
 }
