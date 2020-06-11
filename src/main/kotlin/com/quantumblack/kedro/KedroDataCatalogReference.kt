@@ -69,12 +69,17 @@ class KedroYamlReference(element: PsiElement) : PsiReferenceBase<PsiElement>(ele
      *
      * @return The PSI element of the `KedroDataSet` object in question
      */
-    private fun getYamlDataSetReference(): List<PsiElement> {
+    private fun getYamlDataSetReference(): PsiElement? {
+
         val dataSetName: String = element.castSafelyTo<PyStringLiteralExpression>()
             ?.text
             ?.replace(Regex(pattern = "[\"']"), replacement = "") ?: ""
-        val refs: List<KedroDataSet> = KedroDataCatalogManager.getKedroDataSets().filter { it.name == dataSetName }
-        return refs.map { it.psiItem.node.psi }
+
+        if (KedroDataCatalogManager.dataSetInCatalog(dataSetName)) {
+            val refs: List<KedroDataSet> = KedroDataCatalogManager.getKedroDataSets().filter { it.name == dataSetName }
+            return refs.map { it.psiItem.node.psi }.firstOrNull()
+        }
+        return null
     }
 
     /**
@@ -83,6 +88,6 @@ class KedroYamlReference(element: PsiElement) : PsiReferenceBase<PsiElement>(ele
      * @return The YAML KeyValue reference or null
      */
     override fun resolve(): PsiElement? {
-        return getYamlDataSetReference().firstOrNull()
+        return getYamlDataSetReference()
     }
 }
