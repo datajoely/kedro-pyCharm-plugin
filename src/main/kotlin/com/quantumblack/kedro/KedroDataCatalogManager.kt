@@ -28,10 +28,11 @@ data class KedroDataSet(
     val type: String,
     val location: String,
     val psiItem: YAMLKeyValue,
-    val layer: String = ""
+    val layer: String? = null
 ) {
     val formattedLocation: String = if (this.location.isNotEmpty()) " (${this.location})" else this.location
 }
+
 // Provide Singleton object for the `KedroDataCatalogManager`
 object KedroDataCatalogManager {
     private val icon: Icon = IconLoader.getIcon("/icons/pluginIcon_dark.svg")
@@ -53,7 +54,18 @@ object KedroDataCatalogManager {
                 .map { extractKedroYamlDataSet(it) }
                 .flatten()
         }
+
         return listOf()
+    }
+
+    /**
+     * This helper function quickly checks if a dataset name is present within the catalog
+     *
+     * @param name The name to look up
+     * @return A boolean True or False if present
+     */
+    fun dataSetInCatalog(name: String): Boolean {
+        return this.getKedroDataSets().any { it.name == name }
     }
 
     /**
@@ -79,7 +91,7 @@ object KedroDataCatalogManager {
     }
 
     /**
-     * This function takes a `VirtualFile` which has been sucesfully cast to a `YamlFile` object and
+     * This function takes a `VirtualFile` which has been successfully cast to a `YamlFile` object and
      * extracts the information relevant to constructing an instance of a `KedroDataSet` data class object.
      * Any badly formed YAML catalog files will throw the `ClassCastException` and return zero references
      *
@@ -93,10 +105,10 @@ object KedroDataCatalogManager {
                 !it.keyText.startsWith('_')
             }.map(transform = {
                 val dataSet: YAMLMappingImpl = it.value as YAMLMappingImpl
-                val layer: @NotNull String = dataSet
+                val layer: String? = dataSet
                     .keyValues
                     .firstOrNull { l: YAMLKeyValue -> l.keyText.startsWith("layer") }
-                    ?.valueText ?: ""
+                    ?.valueText
                 KedroDataSet(
                     name = it.keyText,
                     type = dataSet.getKeyValueByKey("type")?.valueText.toString(),
@@ -118,15 +130,23 @@ object KedroDataCatalogManager {
      * @return A lookup element for the given dataset
      */
     private fun createDataSetSuggestion(dataSet: KedroDataSet): LookupElementBuilder {
-        return LookupElementBuilder.create("\"${dataSet.name}\"")
+
+        val tailText: String = if (dataSet.layer != null) {
+            "($dataSet.layer) ${dataSet.formattedLocation}"
+        } else {
+            dataSet.formattedLocation
+        }
+
+        return LookupElementBuilder
+            .create("\"${dataSet.name}\"")
             .bold()
             .withPresentableText(dataSet.name)
             .withCaseSensitivity(false)
-            .withIcon(this.icon)
+            .withIcon(icon)
             .withTypeText(dataSet.type.split(delimiters = *charArrayOf('.')).last())
             .withLookupString(dataSet.name)
-            .withLookupString("kedro")
-            .withTailText(dataSet.formattedLocation)
+            .withLookupStrings(arrayListOf(dataSet.layer ?: "kedro", "kedro"))
+            .withTailText(tailText)
     }
 
     /**
