@@ -16,10 +16,12 @@
                 language="Python"
                 implementationClass="com.quantumblack.kedro.KedroNodeClassAutoComplete"
                 order="first"
+
         />
         <psi.referenceContributor
                 language="Python"
                 implementation="com.quantumblack.kedro.KedroDataCatalogReference"
+                order="first"
             />
     </extensions>
 </idea-plugin>
