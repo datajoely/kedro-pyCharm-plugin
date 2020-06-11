@@ -35,7 +35,9 @@ class KedroNodeClassAutoComplete : CompletionContributor() {
                     resultSet: @NotNull CompletionResultSet
                 ) {
                     if (KedroUtilities.isKedroNodeCatalogParam(parameters.originalPosition)) {
-                        resultSet.addAllElements(KedroDataCatalogManager.getKedroDataSetSuggestions())
+                       resultSet.addAllElements(
+                           KedroDataCatalogManager.getKedroDataSetSuggestions()
+                       )
                     }
                 }
             }
