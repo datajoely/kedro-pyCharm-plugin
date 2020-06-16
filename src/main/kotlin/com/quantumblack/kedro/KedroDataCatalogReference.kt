@@ -75,8 +75,10 @@ class KedroYamlReference(element: PsiElement) : PsiReferenceBase<PsiElement>(ele
             ?.text
             ?.replace(Regex(pattern = "[\"']"), replacement = "") ?: ""
 
-        if (KedroDataCatalogManager.dataSetInCatalog(dataSetName)) {
-            val refs: List<KedroDataSet> = KedroDataCatalogManager.getKedroDataSets().filter { it.name == dataSetName }
+        if (KedroDataCatalogManager.dataSetInCatalog(dataSetName, element.project)) {
+            val refs: List<KedroDataSet> = KedroDataCatalogManager
+                .getKedroDataSets(element.project)
+                .filter { it.name == dataSetName }
             return refs.map { it.psiItem.node.psi }.firstOrNull()
         }
         return null

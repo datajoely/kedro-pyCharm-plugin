@@ -1,10 +1,7 @@
 package com.quantumblack.kedro
 
-import com.intellij.codeInsight.completion.CompletionContributor
-import com.intellij.codeInsight.completion.CompletionParameters
-import com.intellij.codeInsight.completion.CompletionProvider
-import com.intellij.codeInsight.completion.CompletionType
-import com.intellij.codeInsight.completion.CompletionResultSet
+import com.intellij.codeInsight.completion.*
+import com.intellij.openapi.project.Project
 import com.intellij.patterns.PlatformPatterns
 import com.intellij.util.ProcessingContext
 import com.jetbrains.python.PythonLanguage
@@ -35,9 +32,10 @@ class KedroNodeClassAutoComplete : CompletionContributor() {
                     resultSet: @NotNull CompletionResultSet
                 ) {
                     if (KedroUtilities.isKedroNodeCatalogParam(parameters.originalPosition)) {
-                       resultSet.addAllElements(
-                           KedroDataCatalogManager.getKedroDataSetSuggestions()
-                       )
+                        val project: Project? = parameters.editor.project
+                        if (project != null) {
+                            resultSet.addAllElements(KedroDataCatalogManager.getKedroDataSetSuggestions(project))
+                        }
                     }
                 }
             }
