@@ -1,8 +1,13 @@
 package com.quantumblack.kedro
 
 import com.intellij.psi.PsiElement
-import com.intellij.psi.util.*
-import com.jetbrains.python.psi.PyCallExpression
+import com.intellij.psi.util.elementType
+import com.intellij.psi.util.parents
+import com.intellij.psi.util.siblings
+import com.intellij.util.castSafelyTo
+import com.jetbrains.python.PyElementTypes
+import com.jetbrains.python.PyTokenTypes
+import com.jetbrains.python.psi.impl.PyCallExpressionImpl
 
 /**
  * This class exposes a way of detecting Kedro catalog params
@@ -17,42 +22,50 @@ object KedroUtilities {
      */
     fun isKedroNodeCatalogParam(element: PsiElement?): Boolean {
 
-        val isKedroNodeCall: Boolean = element?.parentOfType<PyCallExpression>()
+
+        val isKedroNodeCall: Boolean = element
+            ?.parents
+            ?.firstOrNull { it.elementType == PyElementTypes.CALL_EXPRESSION }
+            .castSafelyTo<PyCallExpressionImpl>()
             ?.callee
             ?.name
             ?.contains(other = "node", ignoreCase = true) ?: false
 
         if (isKedroNodeCall) {
 
-            val argListTypeString = "Py:ARGUMENT_LIST"
+
             val argListObject: PsiElement? = element
                 ?.parents
-                ?.takeWhile { it.elementType.toString() != argListTypeString }
-                ?.lastOrNull()
-                ?: if (element?.parent.elementType.toString() == argListTypeString) element else null
+                ?.firstOrNull { it.elementType == PyElementTypes.ARGUMENT_LIST }
 
             if (argListObject != null) {
 
-                val isInputOutputArg: Boolean = argListObject // Positionally 2nd, 3rd argument
+
+                // to do detect first element within iterable within arg
+                val isInputOutputArg: Boolean = element // Positionally 2nd, 3rd argument
                     .siblings(forward = false)
                     .toList()
-                    .filter { it.elementType.toString() == "Py:COMMA" }
+                    .filter { it.elementType == PyTokenTypes.COMMA }
                     .size in arrayOf(1, 2)
 
 
-                val isInputOutputKwargs: Boolean = element // Detect input/output kwarg, possibly out of order
-                    ?.parents
-                    ?.withIndex()
-                    ?.filter{(i: Int,v: PsiElement) ->  // Kwarg up to levels above  (one level for string, two for iterable)
-                        (i < 2)  && (v.elementType.toString() == "Py:KEYWORD_ARGUMENT_EXPRESSION")
-                    }
-                    ?.firstOrNull()
-                    ?.value
-                    ?.reference
-                    ?.canonicalText
-                    ?.contains(Regex(pattern = "(in|out)puts")) ?: false
+                val isInputOutputKwargs: Boolean = try {
 
-                return isInputOutputArg || isInputOutputKwargs
+                    element // Detect input/output kwarg, possibly out of order
+                        .parents
+                        .withIndex()
+                        .firstOrNull {   // Kwarg up to levels above  (one level for string, two for iterable)
+                            (it.index < 2) && (it.value.elementType == PyElementTypes.KEYWORD_ARGUMENT_EXPRESSION)
+                        }
+                        ?.value
+                        ?.reference
+                        ?.canonicalText
+                        ?.contains(Regex(pattern = "(in|out)puts")) ?: false
+                } catch (e: IllegalAccessException) {
+                    false
+                }
+
+                return (isInputOutputArg || isInputOutputKwargs)
             }
         }
 
