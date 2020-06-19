@@ -1,16 +1,15 @@
 package com.quantumblack.kedro
 
 import com.intellij.codeInsight.lookup.LookupElementBuilder
+import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.IconLoader
 import com.intellij.openapi.vfs.VirtualFile
-import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiManager
 import com.intellij.psi.search.FilenameIndex
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.util.castSafelyTo
 import com.jetbrains.extensions.getQName
-import com.jetbrains.extensions.python.toPsi
 import org.jetbrains.annotations.NotNull
 import org.jetbrains.annotations.Nullable
 import org.jetbrains.yaml.YAMLUtil
@@ -41,9 +40,12 @@ class KedroDataCatalogManager {
 
     companion object {
 
-        private fun getIcon(): @Nullable Icon {
-            return IconLoader.getIcon("/icons/pluginIcon_dark.svg")
-        }
+        /**
+         * This function retrieves the Icon file at runtime
+         *
+         * @return
+         */
+        private fun getIcon(): Icon = IconLoader.getIcon("/icons/pluginIcon_dark.svg")
 
 
         /**
@@ -53,10 +55,8 @@ class KedroDataCatalogManager {
          */
         fun getKedroDataSets(project: Project): List<KedroDataSet> {
 
-
-            val projectYamlFiles: Sequence<VirtualFile> = getProjectCatalogYamlFiles(project)
+            val projectYamlFiles: Sequence<YAMLFile?> = getProjectCatalogYamlFiles(project)
             return projectYamlFiles
-                .map { it.toPsi(project).castSafelyTo<YAMLFile>() }
                 .filterNotNull()
                 .map { extractKedroYamlDataSet(it) }
                 .toList()
@@ -80,17 +80,41 @@ class KedroDataCatalogManager {
          *
          * @return This function provides an iterable object containing `VirtualFile` references
          */
-        private fun getProjectCatalogYamlFiles(project: Project): Sequence<VirtualFile> {
+        private fun getProjectCatalogYamlFiles(project: Project): Sequence<@Nullable YAMLFile?> {
             val isWithinProject: List<String> = arrayOf(project.basePath, "conf", "catalog").filterNotNull()
             val extensions: List<String> = listOf("yml", "yaml")
 
+            val psiManager: PsiManager = PsiManager.getInstance(project)
             return extensions
                 .asSequence()
                 .map { FilenameIndex.getAllFilesByExt(project, it, GlobalSearchScope.projectScope(project)) }
                 .flatten<VirtualFile?>()
                 .filterNotNull()
                 .filter { vf: VirtualFile -> isWithinProject.all { vf.path.contains(it) } }
+                .map { getVirtualFileAsYaml(psiManager, it) }
 
+        }
+
+        /**
+         * This function safely retrieves a virtual file reference from the file system
+         * (an exception is handled if this method is called during reindexing)
+         *
+         * @param psiManager The psiManager instantiated within the calling method
+         * @param vf The file to load as a YamlFile object
+         * @return YamlFile object if successful, null if not
+         */
+        private fun getVirtualFileAsYaml(
+            psiManager: PsiManager,
+            vf: VirtualFile
+        ): YAMLFile? {
+            return try {
+                psiManager.findFile(vf).castSafelyTo<YAMLFile>()
+            } catch (e:Exception){
+                val log: Logger = Logger.getInstance("kedro")
+                log.error("Recorded issue retrieving catalog ${e.stackTrace.toString()}")
+                return null
+
+            }
         }
 
         /**
