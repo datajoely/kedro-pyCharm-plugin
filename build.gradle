@@ -49,10 +49,6 @@ intellij {
 
 buildSearchableOptions {
     enabled = false
-}
-
-buildSearchableOptions {
-    enabled = false
     apply plugin: 'idea'
 }
 
