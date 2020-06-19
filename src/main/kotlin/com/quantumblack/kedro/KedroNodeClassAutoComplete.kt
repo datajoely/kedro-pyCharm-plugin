@@ -3,6 +3,7 @@ package com.quantumblack.kedro
 import com.intellij.codeInsight.completion.*
 import com.intellij.openapi.project.Project
 import com.intellij.patterns.PlatformPatterns
+import com.intellij.psi.PsiElement
 import com.intellij.util.ProcessingContext
 import com.jetbrains.python.PythonLanguage
 import org.jetbrains.annotations.NotNull
@@ -31,9 +32,12 @@ class KedroNodeClassAutoComplete : CompletionContributor() {
                     context: @NotNull ProcessingContext,
                     resultSet: @NotNull CompletionResultSet
                 ) {
-                    if (KedroUtilities.isKedroNodeCatalogParam(parameters.originalPosition)) {
-                        val project: Project? = parameters.editor.project
-                        if (project != null) {
+                    val element: PsiElement? = parameters.originalPosition
+                    val project: Project? = parameters.editor.project
+
+                    if ((element != null) && (project != null)) {
+
+                        if (KedroPsiUtilities.isKedroNodeCatalogParam(element, autoCompletePotential = true)) {
                             resultSet.addAllElements(KedroDataCatalogManager.getKedroDataSetSuggestions(project))
                         }
                     }
