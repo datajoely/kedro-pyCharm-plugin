@@ -23,5 +23,11 @@
                 implementation="com.quantumblack.kedro.KedroDataCatalogReference"
                 order="first"
             />
+
+        <annotator
+            language="Python"
+            implementationClass="com.quantumblack.kedro.KedroDataCatalogAnnotation"
+            />
+
     </extensions>
 </idea-plugin>
