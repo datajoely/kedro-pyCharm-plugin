@@ -5,20 +5,20 @@ import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.IconLoader
 import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiManager
 import com.intellij.psi.search.FilenameIndex
 import com.intellij.psi.search.GlobalSearchScope
+import com.intellij.psi.util.*
 import com.intellij.util.castSafelyTo
-import com.jetbrains.extensions.getQName
-import com.jetbrains.rd.util.first
-import org.jetbrains.annotations.NotNull
 import org.jetbrains.annotations.Nullable
+import org.jetbrains.yaml.YAMLElementTypes
 import org.jetbrains.yaml.YAMLUtil
 import org.jetbrains.yaml.psi.YAMLFile
 import org.jetbrains.yaml.psi.YAMLKeyValue
-import org.jetbrains.yaml.psi.impl.YAMLMappingImpl
-import org.yaml.snakeyaml.Yaml
-import java.io.BufferedReader
+import org.jetbrains.yaml.psi.YAMLPsiElement
+import org.jetbrains.yaml.psi.impl.YAMLAliasImpl
+import org.jetbrains.yaml.psi.impl.YAMLKeyValueImpl
 import javax.swing.Icon
 
 /**
@@ -49,7 +49,6 @@ class KedroDataCatalogManager {
          * @return
          */
         private fun getIcon(): Icon = IconLoader.getIcon("/icons/pluginIcon_dark.svg")
-        private val yaml = Yaml()
         private val log: Logger = Logger.getInstance("kedro")
 
 
@@ -64,6 +63,7 @@ class KedroDataCatalogManager {
             return projectYamlFiles
                 .filterNotNull()
                 .map { extractKedroYamlDataSet(it) }
+                .filterNotNull()
                 .toList()
                 .flatten()
 
@@ -72,11 +72,12 @@ class KedroDataCatalogManager {
         /**
          * This helper function quickly checks if a dataset name is present within the catalog
          *
-         * @param dataSetName The name to look up
+         * @param nameToCheck The name to look up
          * @return A boolean True or False if present
          */
-        fun isDataCatalogEntry(dataSetName: String, project: Project): Boolean {
-            return this.getKedroDataSets(project).any { it.name == dataSetName }
+        fun isDataCatalogEntry(nameToCheck: String, project: Project): Boolean {
+            return this.getKedroDataSets(project)
+                .any { it.name == nameToCheck.replace(regex = Regex(pattern = "[\"']"), replacement = "") }
         }
 
         /**
@@ -96,68 +97,7 @@ class KedroDataCatalogManager {
                 .flatten<VirtualFile?>()
                 .filterNotNull()
                 .filter { vf: VirtualFile -> isWithinProject.all { vf.path.contains(it) } }
-                .map { getVirtualFileAsYaml(psiManager, it) }
-
-        }
-
-        /**
-         * This function parses the YAML file natively. Originally it was planned to use Intellij libraries
-         * exclusively, however it turned out that the PsiFile parsed did not resolve YAML Aliases. Since
-         * this is a key part of how Kedro catalog files are used, it was decided that each YAML file is parsed
-         * twice: (1) For content in this context (2) Again to extract Psi references to the correct key values
-         *
-         * @param reader The buffered reader exposed by the VirtualFileSystem to be parsed
-         * @return
-         */
-        private fun parseYamlFileNatively(reader: BufferedReader): Map<String, Map<String, String>> {
-
-            // Read Yaml file via reader object into kotlin. Snake Yaml is used since it
-            // resolves aliases and anchors
-            val snakeYamlObject: Map<*, *>? =
-                try {
-                    yaml.loadAll(reader)
-                        .toList()
-                        .first()
-                        .castSafelyTo<Map<String, Map<String, *>>>()
-                } catch (e: Exception) {
-                    log.error("Unable to parse yaml file with SnakeYaml ${e.stackTrace}")
-                    return mutableMapOf()
-                }
-
-            fun asStringMap(dict: Map.Entry<Any?, Any?>): Map<String, Map<String, String>> {
-
-                val workingMap: Map<String, String> = // Attempt to cast to String map
-                    dict.value.castSafelyTo<MutableMap<String, String>>() ?: mutableMapOf()
-
-                // Escape if YAML object does not contains "type" inner key
-                if ("type" !in workingMap.keys) return mutableMapOf()
-
-                // Limit inner values to relevant inner keys and copy name down a level
-                val nonNullMap: Map<String, String> = workingMap
-                    .plus(Pair("name", dict.key))
-                    .filterKeys { it in arrayOf("name", "type", "layer") }
-                    .castSafelyTo<Map<String, String>>() ?: mutableMapOf()
-
-                // Return a new nested map
-                return mapOf(dict.key.toString() to nonNullMap)
-            }
-
-            // Create list per nested map
-            val listOfNestedMaps: List<Map<String, Map<String, String>>> = snakeYamlObject
-                ?.filter { !it.key.toString().startsWith('_') }
-                ?.map { asStringMap(it) }
-                ?.dropWhile { it.isEmpty() } ?: emptyList()
-
-            // Create nested map
-            // Todo: See if possible to do without mutation
-            val outputMap: MutableMap<String, Map<String, String>> = mutableMapOf()
-            listOfNestedMaps.forEach {
-                val pair = it.first().toPair()
-                outputMap[pair.first] = pair.second
-            }
-
-            return outputMap
-
+                .mapNotNull { getVirtualFileAsYaml(psiManager, it) }
 
         }
 
@@ -170,14 +110,12 @@ class KedroDataCatalogManager {
          * @return YamlFile object if successful, null if not
          */
         private fun getVirtualFileAsYaml(
-            psiManager: PsiManager,
-            vf: VirtualFile
+            psiManager: PsiManager, vf: VirtualFile
         ): YAMLFile? {
             return try {
-                parseYamlFileNatively(vf.inputStream.bufferedReader())
                 psiManager.findFile(vf).castSafelyTo<YAMLFile>()
             } catch (e: Exception) {
-                log.error("Recorded issue retrieving catalog ${e.stackTrace}")
+                log.error("Recorded issue retrieving catalog ${e.cause}")
                 return null
 
             }
@@ -186,56 +124,99 @@ class KedroDataCatalogManager {
         /**
          * This function takes a `VirtualFile` which has been successfully cast to a `YamlFile` object and
          * extracts the information relevant to constructing an instance of a `KedroDataSet` data class object.
-         * Any badly formed YAML catalog files will throw the `ClassCastException` and return zero references
          *
-         * @param yml The `YAMLFile` object to process
+         * @param yamlFile The `YAMLFile` object to process
          * @return The list of `KedroDataSet` data class objects to work with
          */
-        private fun extractKedroYamlDataSet(yml: YAMLFile): List<KedroDataSet> {
-            try {
-                val dataSets: @NotNull MutableCollection<YAMLKeyValue> = YAMLUtil.getTopLevelKeys(yml)
-                return dataSets.filter {
-                    !it.keyText.startsWith('_')
-                }.map(transform = {
-                    val dataSet: YAMLMappingImpl = it.value as YAMLMappingImpl
-                    val layer: String? = dataSet
-                        .keyValues
-                        .firstOrNull { l: YAMLKeyValue -> l.keyText.startsWith("layer") }
-                        ?.valueText
-                    KedroDataSet(
-                        name = it.keyText,
-                        type = dataSet.getKeyValueByKey("type")?.valueText.toString(),
-                        layer = layer,
-                        location = yml.containingDirectory.getQName().toString(),
-                        psiItem = it
-                    )
-                })
-            } catch (e: java.lang.ClassCastException) {
-                // If YAML is broken skip and return empty collection
-                log.error("Unable to create KedroDataSet ${e.stackTrace}")
-                return listOf()
+        private fun extractKedroYamlDataSet(yamlFile: YAMLFile): List<KedroDataSet> {
+
+            if (yamlFile.text.isEmpty()) return listOf() //escape route
+            val psiDataSets: Map<String, YAMLKeyValue> = YAMLUtil.getTopLevelKeys(yamlFile).map { it.keyText to it }.toMap()
+            val placeHolders: Collection<YAMLKeyValue> = psiDataSets.filterKeys { it.startsWith('_') }.values
+            val potentialDataSets: Collection<YAMLKeyValue> = psiDataSets.filterKeys { !it.startsWith('_') }.values
+            val resolvedDataSets: Map<String, Map<String, String>> = resolveYamlPlaceholders(placeHolders, potentialDataSets)
+
+            return resolvedDataSets.map {
+                KedroDataSet(
+                    name = it.key,
+                    type = it.value["type"].toString(),
+                    location = psiDataSets[it.key]?.containingFile?.containingDirectory.toString(),
+                    psiItem = psiDataSets[it.key] ?: yamlFile.firstChild as YAMLKeyValue,
+                    layer = it.value["layer"]
+                )
             }
+
         }
 
-        /**
-         * This function creates an autocomplete suggestion given a KedroDataSet data class object
-         *
-         * @param dataSet The dataset object to suggest
-         * @return A lookup element for the given dataset
-         */
-        private fun createDataSetSuggestion(dataSet: KedroDataSet): LookupElementBuilder {
+        private fun resolveYamlPlaceholders(
+            placeHolders: Collection<YAMLKeyValue>,
+            potentialDataSets: Collection<YAMLKeyValue>
+        ): Map<String, Map<String, String>> {
 
-            val layer: String? = dataSet.layer
-            return LookupElementBuilder
-                .create("\"${dataSet.name}\"")
-                .bold()
-                .withPresentableText(dataSet.name)
-                .withCaseSensitivity(false)
-                .withIcon(getIcon())
-                .withTypeText(dataSet.type.split(delimiters = *charArrayOf('.')).last() + " ($layer)")
-                .withLookupString(dataSet.name)
-                .withLookupStrings(arrayListOf(dataSet.layer ?: "kedro", "kedro"))
+            fun extractDataSetContent(container: Collection<YAMLKeyValue>): Map<String, Map<String, String>> {
+                val containerCollection: Map<String, List<YAMLPsiElement>> = container.map {
+                    it.keyText to (it.value?.yamlElements ?: listOf())
+                        .filterNotNull()
+                        .filterNot { e: YAMLPsiElement -> e.elementType == YAMLElementTypes.ANCHOR_NODE }
+                }.toMap()
+                val nestedMap: Map<String, Map<String, String>> = containerCollection.mapValues {
+                    it.value
+                        .filter { kv: YAMLPsiElement -> (kv.name in arrayOf("type", "layer")) }
+                        .mapNotNull { element -> element.castSafelyTo<YAMLKeyValueImpl>() }
+                        .map { element -> element.keyText to element.valueText }
+                        .toMap()
+                }
+
+                return nestedMap.filterValues { it.isNotEmpty() }
+            }
+
+            fun interpolateDataSetContent(
+                container: List<YAMLKeyValue>,
+                lookup: Map<String, Map<String, String>>
+            ): Map<String, Map<String, String>> {
+                val containerCollection: Map<String, List<YAMLPsiElement>> = container.map {
+                    it.keyText to (it.value?.yamlElements ?: listOf()).filterNotNull()
+                }.toMap()
+
+                val aliases: Map<String, Map<String, String>?> =
+                    container.map { it.collectDescendantsOfType<YAMLAliasImpl>() }
+                        .flatten()
+                        .map {
+                            it.parentsWithSelf
+                                .mapNotNull { e: PsiElement -> e.castSafelyTo<YAMLKeyValueImpl>()?.keyText }
+                                .filter { k -> k in containerCollection.keys }.last() to lookup['_' + it.aliasName]
+                        }.toMap()
+
+                val nonTemplateCollections: Map<String, Map<String, String>> = containerCollection.mapValues {
+                    it.value
+                        .filter { kv: YAMLPsiElement -> (kv.name in arrayOf("type", "layer")) }
+                        .mapNotNull { element -> element.castSafelyTo<YAMLKeyValueImpl>() }
+                        .map { element -> element.keyText to element.valueText }
+                        .toMap()
+                }
+
+                return nonTemplateCollections.map {
+                    it.key to it.value.plus(aliases[it.key] ?: mapOf())
+                }.toMap()
+
+
+            }
+
+            val placeHolderMap: Map<String, Map<String, String>> = extractDataSetContent(placeHolders)
+
+            val dataSetCategories: Pair<List<YAMLKeyValue>, List<YAMLKeyValue>> = potentialDataSets
+                .partition { it.anyDescendantOfType<YAMLAliasImpl>() }
+
+            val dataSetsExplicitExtracted: Map<String, Map<String, String>> =
+                extractDataSetContent(dataSetCategories.second)
+                    .map { it.key to it.value }.toMap()
+            val dataSetsWithAliasesExtracted: Map<String, Map<String, String>> =
+                interpolateDataSetContent(dataSetCategories.first, placeHolderMap)
+
+            return dataSetsExplicitExtracted.plus(dataSetsWithAliasesExtracted.entries.map { it.toPair() })
+
         }
+
 
         /**
          * This function creates autocomplete suggestions for all datasets available
@@ -243,7 +224,30 @@ class KedroDataCatalogManager {
          * @return A list of autocomplete suggestions
          */
         fun getKedroDataSetSuggestions(project: Project): List<LookupElementBuilder> {
+
+            /**
+             * This function creates an autocomplete suggestion given a KedroDataSet data class object
+             *
+             * @param dataSet The dataset object to suggest
+             * @return A lookup element for the given dataset
+             */
+            fun createDataSetSuggestion(dataSet: KedroDataSet): LookupElementBuilder {
+
+                val layer: String? = if (!dataSet.layer.isNullOrBlank()) " (${dataSet.layer})" else ""
+                return LookupElementBuilder
+                    .create("\"${dataSet.name}\"")
+                    .bold()
+                    .withPresentableText(dataSet.name)
+                    .withCaseSensitivity(false)
+                    .withIcon(getIcon())
+                    .withTypeText(dataSet.type.split(delimiters = *charArrayOf('.')).last() + layer)
+                    .withLookupString(dataSet.name)
+                    .withLookupStrings(arrayListOf(dataSet.layer ?: "kedro", "kedro"))
+            }
+
+
             return getKedroDataSets(project).map { createDataSetSuggestion(it) }
+
         }
 
         /**
