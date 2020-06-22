@@ -270,5 +270,6 @@ class KedroDataCatalogManager {
          */
         fun get(name: String, project: Project): KedroDataSet =
             getKedroDataSets(project).first { isCatalogName(it, name) }
+
     }
 }

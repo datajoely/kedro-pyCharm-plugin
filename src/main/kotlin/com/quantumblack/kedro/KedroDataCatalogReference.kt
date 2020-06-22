@@ -44,6 +44,10 @@ class KedroReferenceProvider : PsiReferenceProvider() {
      * `PyStringLiteralExpression` being scanned
      */
     override fun getReferencesByElement(element: PsiElement, context: ProcessingContext): Array<KedroYamlReference> {
+
+        // Only kick in if at least one dataset is present
+        if (KedroDataCatalogManager.getKedroDataSets(element.project).isNullOrEmpty()) return emptyArray()
+
         if (KedroPsiUtilities.isKedroNodeCatalogParam(element, autoCompletePotential = false)) {
             val references: Array<KedroYamlReference> = arrayOf(KedroYamlReference(element))
             if (references.isNotEmpty()) {
