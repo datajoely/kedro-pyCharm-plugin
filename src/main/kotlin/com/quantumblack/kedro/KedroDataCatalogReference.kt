@@ -74,18 +74,21 @@ class KedroYamlReference(element: PsiElement) : PsiReferenceBase<PsiElement>(ele
      * @return The PSI element of the `KedroDataSet` object in question
      */
     private fun getYamlDataSetReference(): PsiElement? {
+        try{
+            val dataSetName: String = element.castSafelyTo<PyStringLiteralExpression>()
+                ?.text
+                ?.replace(Regex(pattern = "[\"']"), replacement = "") ?: ""
 
-        val dataSetName: String = element.castSafelyTo<PyStringLiteralExpression>()
-            ?.text
-            ?.replace(Regex(pattern = "[\"']"), replacement = "") ?: ""
-
-        if (KedroDataCatalogManager.isDataCatalogEntry(dataSetName, element.project)) {
-            val refs: List<KedroDataSet> = KedroDataCatalogManager
-                .getKedroDataSets(element.project)
-                .filter { it.name == dataSetName }
-            return refs.map { it.psiItem.node.psi }.firstOrNull()
+            if (KedroDataCatalogManager.isDataCatalogEntry(dataSetName, element.project)) {
+                val refs: List<KedroDataSet> = KedroDataCatalogManager
+                    .getKedroDataSets(element.project)
+                    .filter { it.name == dataSetName }
+                return refs.map { it.psiItem.node.psi }.firstOrNull()
+            }
+            return null
+        } catch (e: Exception){
+            return null
         }
-        return null
     }
 
     /**

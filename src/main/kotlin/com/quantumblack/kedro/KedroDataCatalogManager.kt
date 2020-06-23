@@ -10,9 +10,11 @@ import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiManager
 import com.intellij.psi.search.FilenameIndex
 import com.intellij.psi.search.GlobalSearchScope
-import com.intellij.psi.util.*
+import com.intellij.psi.util.anyDescendantOfType
+import com.intellij.psi.util.collectDescendantsOfType
+import com.intellij.psi.util.elementType
+import com.intellij.psi.util.parentsWithSelf
 import com.intellij.util.castSafelyTo
-import org.jetbrains.annotations.Nullable
 import org.jetbrains.yaml.YAMLElementTypes
 import org.jetbrains.yaml.YAMLUtil
 import org.jetbrains.yaml.psi.YAMLFile
@@ -83,21 +85,26 @@ class KedroDataCatalogManager {
          */
         fun getKedroDataSets(project: Project): List<KedroDataSet> {
 
-            val dataSets: List<KedroDataSet> = getProjectCatalogYamlFiles(project)
-                .filterNotNull()
-                .map { extractKedroYamlDataSets(it) }
-                .filterNotNull()
-                .toList()
-                .flatten()
+            try {
+                val dataSets: List<KedroDataSet> = getProjectCatalogYamlFiles(project)
+                    .filterNotNull()
+                    .map { extractKedroYamlDataSets(it) }
+                    .filterNotNull()
+                    .toList()
+                    .flatten()
 
-            val nonUnique: Map<String, Int> = dataSets.groupingBy { it.name }.eachCount().filterValues { it > 1 }
-            return if (nonUnique.isNotEmpty()) {
-                val message = "There are multiple datasets named: ${nonUnique.keys.joinToString(separator = ",")}"
-                log.error(message)
-                WindowManager.getInstance().getStatusBar(project).info = message
-                listOf()
-            } else {
-                dataSets
+                val nonUnique: Map<String, Int> = dataSets.groupingBy { it.name }.eachCount().filterValues { it > 1 }
+                return if (nonUnique.isNotEmpty()) {
+                    val message = "There are multiple datasets named: ${nonUnique.keys.joinToString(separator = ",")}"
+                    log.error(message)
+                    WindowManager.getInstance().getStatusBar(project).info = message
+                    listOf()
+                } else {
+                    dataSets
+                }
+            } catch (e: Exception) {
+                log.error("Unable to scan YAML files during index")
+                return listOf()
             }
         }
 
@@ -108,8 +115,13 @@ class KedroDataCatalogManager {
          * @return A boolean True or False if present
          */
         fun isDataCatalogEntry(nameToCheck: String, project: Project): Boolean {
-            return this.getKedroDataSets(project)
-                .any { it.name == nameToCheck.replace(regex = Regex(pattern = "[\"']"), replacement = "") }
+            return try {
+                getKedroDataSets(project)
+                    .any { it.name == nameToCheck.replace(regex = Regex(pattern = "[\"']"), replacement = "") }
+            } catch (e:Exception){
+                false
+            }
+
         }
 
         /**
@@ -118,14 +130,14 @@ class KedroDataCatalogManager {
          *
          * @return This function provides an iterable object containing `VirtualFile` references
          */
-        private fun getProjectCatalogYamlFiles(project: Project): Sequence<@Nullable YAMLFile?> {
+        private fun getProjectCatalogYamlFiles(project: Project): Sequence<YAMLFile?> {
             val isWithinProject: List<String> = arrayOf(project.basePath, "conf", "catalog").filterNotNull()
             val extensions: List<String> = listOf("yml", "yaml")
-
-            val psiManager: PsiManager = PsiManager.getInstance(project)
-            return extensions
+            val virtualFiles = extensions
                 .asSequence()
                 .map { FilenameIndex.getAllFilesByExt(project, it, GlobalSearchScope.projectScope(project)) }
+            val psiManager: PsiManager = PsiManager.getInstance(project)
+            return virtualFiles
                 .flatten<VirtualFile?>()
                 .filterNotNull()
                 .filter { vf: VirtualFile -> isWithinProject.all { vf.path.contains(it) } }
@@ -351,7 +363,13 @@ class KedroDataCatalogManager {
          * @param name The name of the object to retrieve
          * @param project The project to scan
          */
-        fun get(name: String, project: Project): KedroDataSet =
-            getKedroDataSets(project).first { isCatalogName(it, name) }
+        fun get(name: String, project: Project): KedroDataSet? =
+            try {
+                getKedroDataSets(project).firstOrNull { isCatalogName(it, name) }
+            } catch (e:Exception){
+                log.error("Unable to retrieve dataset during index")
+                null
+            }
+
     }
 }
