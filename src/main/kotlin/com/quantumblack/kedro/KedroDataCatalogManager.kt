@@ -10,10 +10,7 @@ import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiManager
 import com.intellij.psi.search.FilenameIndex
 import com.intellij.psi.search.GlobalSearchScope
-import com.intellij.psi.util.anyDescendantOfType
-import com.intellij.psi.util.collectDescendantsOfType
-import com.intellij.psi.util.elementType
-import com.intellij.psi.util.parentsWithSelf
+import com.intellij.psi.util.*
 import com.intellij.util.castSafelyTo
 import org.jetbrains.yaml.YAMLElementTypes
 import org.jetbrains.yaml.YAMLUtil
@@ -70,13 +67,14 @@ class KedroDataCatalogManager {
 
     companion object {
 
+        private val log: Logger = Logger.getInstance("kedro")
+
         /**
          * This function retrieves the Icon file at runtime
          *
          * @return
          */
         private fun getIcon(): Icon = IconLoader.getIcon("/icons/pluginIcon_dark.svg")
-        private val log: Logger = Logger.getInstance("kedro")
 
         /**
          * This function collect a list of `KedroDataSets` for all catalog YAML files available in the project
@@ -131,6 +129,7 @@ class KedroDataCatalogManager {
          * @return This function provides an iterable object containing `VirtualFile` references
          */
         private fun getProjectCatalogYamlFiles(project: Project): Sequence<YAMLFile?> {
+
             val isWithinProject: List<String> = arrayOf(project.basePath, "conf", "catalog").filterNotNull()
             val extensions: List<String> = listOf("yml", "yaml")
             val virtualFiles = extensions
