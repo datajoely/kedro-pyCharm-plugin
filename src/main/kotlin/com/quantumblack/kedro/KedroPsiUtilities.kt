@@ -34,7 +34,7 @@ object KedroPsiUtilities {
         if (isWithinKedroNode) {
 
             val isKwarg: Boolean = isKwarg(element)
-            val isArg : Boolean = !isKwarg
+            val isArg: Boolean = !isKwarg
             val is2nd3rdParam: Boolean = is2nd3rdParam(callableExpression, element)
             val isInputOutputKwarg: Boolean = isInputOutputKwarg(element)
             val isPotential2nd3rdParam: Boolean = isPotential2nd3rdParam(element)
@@ -62,7 +62,7 @@ object KedroPsiUtilities {
 
         val isParentArgList: Boolean = element.parent == PyElementTypes.ARGUMENT_LIST
 
-        val lastChildBeforeArguments: PsiElement?  = element.parents
+        val lastChildBeforeArguments: PsiElement? = element.parents
             .takeWhile { it.elementType != PyElementTypes.ARGUMENT_LIST }
             .lastOrNull() ?: if (isParentArgList) element else null
 

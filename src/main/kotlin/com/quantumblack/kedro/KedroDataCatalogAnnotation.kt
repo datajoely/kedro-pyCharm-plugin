@@ -15,25 +15,22 @@ class KedroDataCatalogAnnotation : Annotator {
         if (KedroPsiUtilities.isKedroNodeCatalogParam(element, autoCompletePotential = false)) {
             if (element.elementType == PyElementTypes.STRING_LITERAL_EXPRESSION) {
 
-
                 val isDataSetCheck: Boolean = try {
                     KedroDataCatalogManager.isDataCatalogEntry(element.text, element.project)
-                } catch (e:Exception){
+                } catch (e: Exception) {
                     false
                 }
 
-                if (isDataSetCheck){
+                if (isDataSetCheck) {
                     val dataSetObject: KedroDataSet = KedroDataCatalogManager.get(element.text, element.project)
-                    val layer : String = if (dataSetObject.layer != null) " (${dataSetObject.layer})" else ""
+                    val layer: String = if (dataSetObject.layer != null) " (${dataSetObject.layer})" else ""
                     holder.newAnnotation(HighlightSeverity.INFORMATION, "Catalog reference")
-                        .tooltip("${dataSetObject.type}${layer}")
+                        .tooltip("${dataSetObject.type}$layer")
                         .textAttributes(DefaultLanguageHighlighterColors.METADATA)
-                        .range(TextRangeInterval(element.textRange.startOffset+1, element.textRange.endOffset-1))
+                        .range(TextRangeInterval(element.textRange.startOffset + 1, element.textRange.endOffset - 1))
                         .create()
                 }
-
             }
         }
     }
-
 }

@@ -5,6 +5,7 @@ import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.IconLoader
 import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.openapi.wm.WindowManager
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiManager
 import com.intellij.psi.search.FilenameIndex
@@ -36,7 +37,31 @@ data class KedroDataSet(
     val location: String,
     val psiItem: YAMLKeyValue,
     val layer: String? = null
-)
+) {
+
+    /**
+     * Comparison of KedroDataSets is only done on name since this is the way it will work within the Kedro context
+     *
+     * @param other The other object to compare
+     * @return True if both dataset names are equal
+     */
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+        other as KedroDataSet
+        if (name != other.name) return false
+        return true
+    }
+
+    /**
+     * This function defines uniqueness by the hash of the name string
+     *
+     * @return The hashcode of the trimmed string
+     */
+    override fun hashCode(): Int {
+        return name.trim().hashCode()
+    }
+}
 
 // Provide Singleton object for the `KedroDataCatalogManager`
 class KedroDataCatalogManager {
@@ -51,7 +76,6 @@ class KedroDataCatalogManager {
         private fun getIcon(): Icon = IconLoader.getIcon("/icons/pluginIcon_dark.svg")
         private val log: Logger = Logger.getInstance("kedro")
 
-
         /**
          * This function collect a list of `KedroDataSets` for all catalog YAML files available in the project
          *
@@ -59,14 +83,22 @@ class KedroDataCatalogManager {
          */
         fun getKedroDataSets(project: Project): List<KedroDataSet> {
 
-            val projectYamlFiles: Sequence<YAMLFile?> = getProjectCatalogYamlFiles(project)
-            return projectYamlFiles
+            val dataSets: List<KedroDataSet> = getProjectCatalogYamlFiles(project)
                 .filterNotNull()
-                .map { extractKedroYamlDataSet(it) }
+                .map { extractKedroYamlDataSets(it) }
                 .filterNotNull()
                 .toList()
                 .flatten()
 
+            val nonUnique: Map<String, Int> = dataSets.groupingBy { it.name }.eachCount().filterValues { it > 1 }
+            return if (nonUnique.isNotEmpty()) {
+                val message = "There are multiple datasets named: ${nonUnique.keys.joinToString(separator = ",")}"
+                log.error(message)
+                WindowManager.getInstance().getStatusBar(project).info = message
+                listOf()
+            } else {
+                dataSets
+            }
         }
 
         /**
@@ -98,7 +130,6 @@ class KedroDataCatalogManager {
                 .filterNotNull()
                 .filter { vf: VirtualFile -> isWithinProject.all { vf.path.contains(it) } }
                 .mapNotNull { getVirtualFileAsYaml(psiManager, it) }
-
         }
 
         /**
@@ -109,15 +140,12 @@ class KedroDataCatalogManager {
          * @param vf The file to load as a YamlFile object
          * @return YamlFile object if successful, null if not
          */
-        private fun getVirtualFileAsYaml(
-            psiManager: PsiManager, vf: VirtualFile
-        ): YAMLFile? {
+        private fun getVirtualFileAsYaml(psiManager: PsiManager, vf: VirtualFile): YAMLFile? {
             return try {
                 psiManager.findFile(vf).castSafelyTo<YAMLFile>()
             } catch (e: Exception) {
-                log.error("Recorded issue retrieving catalog ${e.cause}")
+                log.error("Recorded issue retrieving catalog ${e.stackTrace}")
                 return null
-
             }
         }
 
@@ -128,14 +156,33 @@ class KedroDataCatalogManager {
          * @param yamlFile The `YAMLFile` object to process
          * @return The list of `KedroDataSet` data class objects to work with
          */
-        private fun extractKedroYamlDataSet(yamlFile: YAMLFile): List<KedroDataSet> {
+        private fun extractKedroYamlDataSets(yamlFile: YAMLFile): List<KedroDataSet> {
 
-            if (yamlFile.text.isEmpty()) return listOf() //escape route
-            val psiDataSets: Map<String, YAMLKeyValue> = YAMLUtil.getTopLevelKeys(yamlFile).map { it.keyText to it }.toMap()
-            val placeHolders: Collection<YAMLKeyValue> = psiDataSets.filterKeys { it.startsWith('_') }.values
-            val potentialDataSets: Collection<YAMLKeyValue> = psiDataSets.filterKeys { !it.startsWith('_') }.values
-            val resolvedDataSets: Map<String, Map<String, String>> = resolveYamlPlaceholders(placeHolders, potentialDataSets)
+            // Escape route if files are empty
+            if (yamlFile.text.isEmpty()) return listOf()
 
+            // Get top level keys per file
+            val psiDataSets: Map<String, YAMLKeyValue> = YAMLUtil.getTopLevelKeys(yamlFile)
+                .map { it.keyText to it }
+                .toMap()
+
+            // Get anchors placeholders e.g. `_csv`
+            val placeHolders: Collection<YAMLKeyValue> = psiDataSets
+                .filterKeys { it.startsWith('_') }
+                .values
+
+            // Get datasets which are not aliases, but may or many not interpolation
+            val dataSetsToResolve: Collection<YAMLKeyValue> = psiDataSets
+                .filterKeys { !it.startsWith('_') }
+                .values
+
+            // This function accepts the placeholder and dataset collection, placeholder aliases will be interpolated
+            val resolvedDataSets: Map<String, Map<String, String>> = resolveYamlPlaceholders(
+                potentialDataSets = dataSetsToResolve,
+                placeHolders = placeHolders
+            )
+
+            // A list of KedroDataSet data class objects are created as a result
             return resolvedDataSets.map {
                 KedroDataSet(
                     name = it.key,
@@ -145,78 +192,117 @@ class KedroDataCatalogManager {
                     layer = it.value["layer"]
                 )
             }
-
         }
 
+        /**
+         * This function will process YAML Psi elements and prepare them in a format ready to extract as
+         * KedroDataSet objects. This function also replaces `anchor` nodes with the relevant `alias` information.
+         * This function is only interested in pulling out `type` and `layer` information in addition to the `name`
+         * key
+         *
+         * @param potentialDataSets The datasets to convert, these may include alias nodes which require interpolation
+         * @param placeHolders The anchor node information needed to perform any interpolation
+         * @param keyDataSetAttributes The dataset attributes which we are interested in pulling out (default value)
+         * @return A map including a sub map of key dataset attributes for all YAML datasets discovered in a given file
+         */
         private fun resolveYamlPlaceholders(
+            potentialDataSets: Collection<YAMLKeyValue>,
             placeHolders: Collection<YAMLKeyValue>,
-            potentialDataSets: Collection<YAMLKeyValue>
+            keyDataSetAttributes: Array<String> = arrayOf("type", "layer")
         ): Map<String, Map<String, String>> {
 
-            fun extractDataSetContent(container: Collection<YAMLKeyValue>): Map<String, Map<String, String>> {
-                val containerCollection: Map<String, List<YAMLPsiElement>> = container.map {
-                    it.keyText to (it.value?.yamlElements ?: listOf())
-                        .filterNotNull()
-                        .filterNot { e: YAMLPsiElement -> e.elementType == YAMLElementTypes.ANCHOR_NODE }
-                }.toMap()
-                val nestedMap: Map<String, Map<String, String>> = containerCollection.mapValues {
-                    it.value
-                        .filter { kv: YAMLPsiElement -> (kv.name in arrayOf("type", "layer")) }
-                        .mapNotNull { element -> element.castSafelyTo<YAMLKeyValueImpl>() }
-                        .map { element -> element.keyText to element.valueText }
-                        .toMap()
-                }
-
-                return nestedMap.filterValues { it.isNotEmpty() }
+            /**
+             * This function takes a list of YAML PsiElements and converts this into a native kotlin Map object
+             *
+             * @param entry The list of PsiElements to process
+             * @return A nested map that is native kotlin
+             */
+            fun dataSetAsMap(entry: Map.Entry<String, List<YAMLPsiElement>>): Map<String, String> {
+                return entry.value
+                    .filter { it.name in keyDataSetAttributes }
+                    .mapNotNull { it.castSafelyTo<YAMLKeyValueImpl>() }
+                    .map { it.keyText to it.valueText }
+                    .toMap()
             }
 
-            fun interpolateDataSetContent(
-                container: List<YAMLKeyValue>,
+            /**
+             * This function processes datasets known to not include any alias nodes
+             *
+             * @param keyValueList The list of YamlKeyValue items to process into a nested kotlin Map object
+             * @return A nested map object limited to relevant keys
+             */
+            fun getDataSet(keyValueList: Collection<YAMLKeyValue>): Map<String, Map<String, String>> {
+                val collection: Map<String, List<YAMLPsiElement>> = keyValueList
+                    .map {
+                        it.keyText to (it.value?.yamlElements ?: listOf())
+                            .filterNotNull()
+                            .filterNot { e: YAMLPsiElement -> e.elementType == YAMLElementTypes.ANCHOR_NODE }
+                    }.toMap()
+                return collection
+                    .mapValues { dataSetAsMap(it) }
+                    .filterValues { it.isNotEmpty() }
+            }
+
+            /**
+             * This function accepts datasets known to have alias and interpolates the relevant placeholders and
+             * constructs a full realised dataset
+             *
+             * @param keyValueList The list YamlKeyValues items to process into a nested Map Object (with interpolation)
+             * @param lookup The dictionary of aliases to lookup
+             * @return A nested map object limited to relevant keys (with interpolation appplied)
+             */
+            fun interpolateDataSet(
+                keyValueList: List<YAMLKeyValue>,
                 lookup: Map<String, Map<String, String>>
             ): Map<String, Map<String, String>> {
-                val containerCollection: Map<String, List<YAMLPsiElement>> = container.map {
-                    it.keyText to (it.value?.yamlElements ?: listOf()).filterNotNull()
-                }.toMap()
 
-                val aliases: Map<String, Map<String, String>?> =
-                    container.map { it.collectDescendantsOfType<YAMLAliasImpl>() }
+                val collection: Map<String, List<YAMLPsiElement>> = keyValueList
+                    .map { it.keyText to (it.value?.yamlElements ?: listOf()).filterNotNull() }.toMap()
+
+                val aliases: Map<String, Map<String, String>> =
+                    keyValueList.map { it.collectDescendantsOfType<YAMLAliasImpl>() }
                         .flatten()
                         .map {
-                            it.parentsWithSelf
-                                .mapNotNull { e: PsiElement -> e.castSafelyTo<YAMLKeyValueImpl>()?.keyText }
-                                .filter { k -> k in containerCollection.keys }.last() to lookup['_' + it.aliasName]
+                            // Bubble up PsiTree of type YAMLKeyValueImpl and retrieve the top level dataset name
+                            val dataSetName: String = (
+                                    it.parentsWithSelf
+                                        .mapNotNull { e: PsiElement -> e.castSafelyTo<YAMLKeyValueImpl>()?.keyText }
+                                        .filter { k: String -> k in collection.keys }
+                                        .last()
+                                    )
+                            // Retrieve _alias from lookup dictionary of placeholders e.g. _csv -> csv
+                            val anchorAttributes: Map<String, String> = lookup['_' + it.aliasName] ?: mapOf()
+                            dataSetName to anchorAttributes
                         }.toMap()
 
-                val nonTemplateCollections: Map<String, Map<String, String>> = containerCollection.mapValues {
-                    it.value
-                        .filter { kv: YAMLPsiElement -> (kv.name in arrayOf("type", "layer")) }
-                        .mapNotNull { element -> element.castSafelyTo<YAMLKeyValueImpl>() }
-                        .map { element -> element.keyText to element.valueText }
-                        .toMap()
-                }
-
-                return nonTemplateCollections.map {
-                    it.key to it.value.plus(aliases[it.key] ?: mapOf())
-                }.toMap()
-
-
+                // For each yaml object, attempt to convert to map and then merge in placeholder dictionary accordingly
+                return collection
+                    .mapValues { dataSetAsMap(it) }
+                    .map { it.key to it.value.plus(aliases[it.key] ?: mapOf()) }
+                    .toMap()
             }
 
-            val placeHolderMap: Map<String, Map<String, String>> = extractDataSetContent(placeHolders)
+            // Convert placeholder YAML objects to Kotlin map
+            val placeHolderMap: Map<String, Map<String, String>> = getDataSet(placeHolders)
 
+            // Get two sets of datasets (1) The documents which include an alias child (2) The documents which don't
             val dataSetCategories: Pair<List<YAMLKeyValue>, List<YAMLKeyValue>> = potentialDataSets
                 .partition { it.anyDescendantOfType<YAMLAliasImpl>() }
 
-            val dataSetsExplicitExtracted: Map<String, Map<String, String>> =
-                extractDataSetContent(dataSetCategories.second)
-                    .map { it.key to it.value }.toMap()
-            val dataSetsWithAliasesExtracted: Map<String, Map<String, String>> =
-                interpolateDataSetContent(dataSetCategories.first, placeHolderMap)
+            // Extract the datasets which are known to not include and aliases
+            val dataSetsExplicitExtracted: Map<String, Map<String, String>> = getDataSet(dataSetCategories.second)
+                .map { it.key to it.value }
+                .toMap()
 
+            // Extract the and interpolate datasets which are known to include aliases
+            val dataSetsWithAliasesExtracted: Map<String, Map<String, String>> = interpolateDataSet(
+                dataSetCategories.first,
+                placeHolderMap
+            )
+
+            // Combine explicit and interpolated datasets as one map
             return dataSetsExplicitExtracted.plus(dataSetsWithAliasesExtracted.entries.map { it.toPair() })
-
         }
-
 
         /**
          * This function creates autocomplete suggestions for all datasets available
@@ -244,10 +330,7 @@ class KedroDataCatalogManager {
                     .withLookupString(dataSet.name)
                     .withLookupStrings(arrayListOf(dataSet.layer ?: "kedro", "kedro"))
             }
-
-
             return getKedroDataSets(project).map { createDataSetSuggestion(it) }
-
         }
 
         /**
@@ -270,6 +353,5 @@ class KedroDataCatalogManager {
          */
         fun get(name: String, project: Project): KedroDataSet =
             getKedroDataSets(project).first { isCatalogName(it, name) }
-
     }
 }
