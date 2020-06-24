@@ -35,10 +35,15 @@ class KedroNodeClassAutoComplete : CompletionContributor() {
                     val element: PsiElement? = parameters.originalPosition
                     val project: Project? = parameters.editor.project
 
-                    if ((element != null) && (project != null)) {
+                    if (element != null) {
 
-                        if (KedroPsiUtilities.isKedroNodeCatalogParam(element, autoCompletePotential = true)) {
-                            resultSet.addAllElements(KedroDataCatalogManager.getKedroDataSetSuggestions(project))
+                        val service :KedroYamlCatalogService = KedroYamlCatalogService.getInstance(project!!)
+                        if (KedroPsiUtilities.isKedroNodeCatalogParam(
+                                element = element,
+                                autoCompletePotential = true
+                            )
+                        ) {
+                            resultSet.addAllElements(service.dataSets.map { it.value.getAutoCompleteSuggestion() })
                         }
                     }
                 }

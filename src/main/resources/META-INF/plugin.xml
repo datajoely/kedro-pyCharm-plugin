@@ -12,6 +12,12 @@
     <depends>org.jetbrains.plugins.yaml</depends>
 
     <extensions defaultExtensionNs="com.intellij">
+
+        <projectService
+                serviceImplementation="com.quantumblack.kedro.KedroYamlCatalogService" order="first"
+                preload="true"
+        />
+
         <completion.contributor
                 language="Python"
                 implementationClass="com.quantumblack.kedro.KedroNodeClassAutoComplete"
@@ -28,6 +34,11 @@
             language="Python"
             implementationClass="com.quantumblack.kedro.KedroDataCatalogAnnotation"
             />
+
+
+
+
+        <postStartupActivity implementation="com.quantumblack.kedro.KedroCatalogManager" order="last"/>
 
     </extensions>
 </idea-plugin>

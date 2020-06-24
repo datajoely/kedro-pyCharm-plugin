@@ -1,12 +1,7 @@
 package com.quantumblack.kedro
 
 import com.intellij.patterns.PlatformPatterns
-import com.intellij.psi.PsiElement
-import com.intellij.psi.PsiReferenceBase
-import com.intellij.psi.PsiReferenceContributor
-import com.intellij.psi.PsiReferenceProvider
-import com.intellij.psi.PsiReferenceRegistrar
-
+import com.intellij.psi.*
 import com.intellij.util.ProcessingContext
 import com.intellij.util.castSafelyTo
 import com.jetbrains.python.psi.PyStringLiteralExpression
@@ -45,9 +40,6 @@ class KedroReferenceProvider : PsiReferenceProvider() {
      */
     override fun getReferencesByElement(element: PsiElement, context: ProcessingContext): Array<KedroYamlReference> {
 
-        // Only kick in if at least one dataset is present
-        if (KedroDataCatalogManager.getKedroDataSets(element.project).isNullOrEmpty()) return emptyArray()
-
         if (KedroPsiUtilities.isKedroNodeCatalogParam(element, autoCompletePotential = false)) {
             val references: Array<KedroYamlReference> = arrayOf(KedroYamlReference(element))
             if (references.isNotEmpty()) {
@@ -74,20 +66,15 @@ class KedroYamlReference(element: PsiElement) : PsiReferenceBase<PsiElement>(ele
      * @return The PSI element of the `KedroDataSet` object in question
      */
     private fun getYamlDataSetReference(): PsiElement? {
-        try{
-            val dataSetName: String = element.castSafelyTo<PyStringLiteralExpression>()
-                ?.text
-                ?.replace(Regex(pattern = "[\"']"), replacement = "") ?: ""
-
-            if (KedroDataCatalogManager.isDataCatalogEntry(dataSetName, element.project)) {
-                val refs: List<KedroDataSet> = KedroDataCatalogManager
-                    .getKedroDataSets(element.project)
-                    .filter { it.name == dataSetName }
-                return refs.map { it.psiItem.node.psi }.firstOrNull()
-            }
-            return null
-        } catch (e: Exception){
-            return null
+        return try {
+            val dataSetName: String = element.castSafelyTo<PyStringLiteralExpression>()?.text ?: "UNKNOWN"
+            val service: KedroYamlCatalogService = KedroYamlCatalogService.getInstance(project = element.project)
+            service.dataSets.values
+                .filter { it.nameEqual(dataSetName) }
+                .mapNotNull { it.psiItem?.node?.psi }
+                .firstOrNull()
+        } catch (e: Exception) {
+            null
         }
     }
 

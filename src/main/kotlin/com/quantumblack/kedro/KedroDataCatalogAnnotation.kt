@@ -13,30 +13,29 @@ class KedroDataCatalogAnnotation : Annotator {
     override fun annotate(element: PsiElement, holder: AnnotationHolder) {
 
         if (KedroPsiUtilities.isKedroNodeCatalogParam(element, autoCompletePotential = false)) {
+            val service: KedroYamlCatalogService = KedroYamlCatalogService.getInstance(element.project)
 
             if (element.elementType == PyElementTypes.STRING_LITERAL_EXPRESSION) {
 
-                val isDataSetCheck: Boolean = try {
-                    KedroDataCatalogManager.isDataCatalogEntry(element.text, element.project)
-                } catch (e: Exception) {
-                    false
-                }
+                val kedroDataSet: KedroDataSet? = service
+                    .dataSets
+                    .filterValues { it.nameEqual(element.text) }
+                    .values
+                    .firstOrNull()
 
-                if (isDataSetCheck) {
-                    val dataSetObject: KedroDataSet? = KedroDataCatalogManager.get(element.text, element.project)
-                    if (dataSetObject != null) {
-                        val layer: String = if (dataSetObject.layer != null) " (${dataSetObject.layer})" else ""
-                        holder.newAnnotation(HighlightSeverity.INFORMATION, "Catalog reference")
-                            .tooltip("${dataSetObject.type}$layer")
-                            .textAttributes(DefaultLanguageHighlighterColors.METADATA)
-                            .range(
-                                TextRangeInterval(
-                                    element.textRange.startOffset + 1,
-                                    element.textRange.endOffset - 1
-                                )
+                if (kedroDataSet != null) {
+
+                    val layer: String = if (kedroDataSet.layer != null) " (${kedroDataSet.layer})" else ""
+                    holder.newAnnotation(HighlightSeverity.INFORMATION, "Catalog reference")
+                        .tooltip("${kedroDataSet.type}$layer")
+                        .textAttributes(DefaultLanguageHighlighterColors.METADATA)
+                        .range(
+                            TextRangeInterval(
+                                element.textRange.startOffset + 1,
+                                element.textRange.endOffset - 1
                             )
-                            .create()
-                    }
+                        )
+                        .create()
                 }
             }
         }

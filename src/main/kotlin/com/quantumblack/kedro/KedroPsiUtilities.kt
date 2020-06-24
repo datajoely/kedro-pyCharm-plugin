@@ -1,6 +1,11 @@
 package com.quantumblack.kedro
 
+import com.intellij.openapi.project.Project
+import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiManager
+import com.intellij.psi.search.FilenameIndex
+import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.util.elementType
 import com.intellij.psi.util.isAncestor
 import com.intellij.psi.util.parents
@@ -11,6 +16,7 @@ import com.jetbrains.python.PyTokenTypes
 import com.jetbrains.python.psi.PyExpression
 import com.jetbrains.python.psi.impl.PyCallExpressionImpl
 import com.jetbrains.python.psi.impl.PyKeywordArgumentImpl
+import org.jetbrains.yaml.psi.YAMLFile
 
 /**
  * This class exposes a way of detecting Kedro catalog params
