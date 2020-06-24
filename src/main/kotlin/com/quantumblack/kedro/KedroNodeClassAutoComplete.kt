@@ -43,7 +43,7 @@ class KedroNodeClassAutoComplete : CompletionContributor() {
                                 autoCompletePotential = true
                             )
                         ) {
-                            resultSet.addAllElements(service.dataSets.map { it.value.getAutoCompleteSuggestion() })
+                            resultSet.addAllElements(service.dataSets.map { it.getAutoCompleteSuggestion() })
                         }
                     }
                 }

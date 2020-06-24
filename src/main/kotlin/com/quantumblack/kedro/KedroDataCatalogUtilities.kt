@@ -181,7 +181,6 @@ object KedroDataCatalogUtilities {
     }
 
     fun isKedroYamlFile(vf: VirtualFile, project: Project): Boolean {
-
         val isCorrectExtension: Boolean = vf.extension in extensions
         val isLocation: Boolean = arrayOf(project.basePath, "conf", "catalog")
             .filterNotNull()

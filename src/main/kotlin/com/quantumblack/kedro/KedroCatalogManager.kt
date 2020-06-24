@@ -25,7 +25,10 @@ class KedroCatalogManager : StartupActivity {
 
         invokeAfterPsiEvents {
             val yamlFiles: List<YAMLFile> = KedroDataCatalogUtilities.getKedroCatalogItems(project = project)
-            dataCatalogService.dataSets = KedroDataCatalogUtilities.getKedroDataSets(yamlFiles = yamlFiles)
+            dataCatalogService.dataSets = KedroDataCatalogUtilities
+                .getKedroDataSets(yamlFiles = yamlFiles)
+                .values
+                .toMutableList()
         }
 
         VirtualFileManager.getInstance().addAsyncFileListener(
@@ -83,14 +86,17 @@ class KedroCatalogManager : StartupActivity {
 
     private fun updateDataSets(changedYamlFiles: List<YAMLFile>, service: KedroYamlCatalogService) {
         invokeAfterPsiEvents {
-            val kedroDataSets: MutableMap<String, KedroDataSet> =
+            val newKedroDataSets: MutableMap<String, KedroDataSet> =
                 KedroDataCatalogUtilities.getKedroDataSets(changedYamlFiles)
-
-            //todo change to mutablelist since the iterator provides a way of adding
-            val iterator: MutableIterator<MutableMap.MutableEntry<String, KedroDataSet>> = service.dataSets.iterator()
+            val iterator: MutableListIterator<KedroDataSet> = service.dataSets.listIterator()
             while (iterator.hasNext()) {
-                val item: MutableMap.MutableEntry<String, KedroDataSet> = iterator.next()
-                service.dataSets[item.key] = item.value
+                val existingDataSet: KedroDataSet = iterator.next()
+                val swapDataSet: KedroDataSet? =
+                    newKedroDataSets.values.firstOrNull { it.nameEqual(existingDataSet.name) }
+                if (swapDataSet != null) {
+                    iterator.remove()
+                    iterator.add(swapDataSet)
+                }
             }
         }
     }
@@ -106,16 +112,13 @@ class KedroCatalogManager : StartupActivity {
                 }
                 .toMap()
 
-            val iterator: MutableIterator<MutableMap.MutableEntry<String, KedroDataSet>> = service.dataSets.iterator()
+            val iterator: MutableListIterator<KedroDataSet> = service.dataSets.listIterator()
             while (iterator.hasNext()) {
 
-                val item: MutableMap.MutableEntry<String, KedroDataSet> = iterator.next()
-                val name: String = item.key
-                val dataset: KedroDataSet = item.value
-
+                val dataset: KedroDataSet = iterator.next()
                 if (dataset.location in yamlKeyMap.keys) {
                     val currentYamlContents: List<String> = yamlKeyMap[dataset.location] ?: listOf()
-                    if (name !in currentYamlContents && name in service.dataSets.keys) {
+                    if (dataset.name !in currentYamlContents && service.dataSets.any { dataset.nameEqual(it.name) }) {
                         iterator.remove()
                     }
                 }

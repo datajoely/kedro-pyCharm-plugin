@@ -69,7 +69,7 @@ class KedroYamlReference(element: PsiElement) : PsiReferenceBase<PsiElement>(ele
         return try {
             val dataSetName: String = element.castSafelyTo<PyStringLiteralExpression>()?.text ?: "UNKNOWN"
             val service: KedroYamlCatalogService = KedroYamlCatalogService.getInstance(project = element.project)
-            service.dataSets.values
+            service.dataSets
                 .filter { it.nameEqual(dataSetName) }
                 .mapNotNull { it.psiItem?.node?.psi }
                 .firstOrNull()

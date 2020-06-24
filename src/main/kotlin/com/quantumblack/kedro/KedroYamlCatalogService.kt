@@ -9,7 +9,7 @@ import com.intellij.util.xmlb.XmlSerializerUtil
 
 @State(name = "KedroYamlCatalogService", storages = [Storage("kedroCatalogStore.xml")])
 class KedroYamlCatalogService : PersistentStateComponent<KedroYamlCatalogService>{
-    var dataSets: MutableMap<String, KedroDataSet> = mutableMapOf()
+    var dataSets: MutableList<KedroDataSet> = mutableListOf()
 
     override fun getState(): KedroYamlCatalogService {
         return this
