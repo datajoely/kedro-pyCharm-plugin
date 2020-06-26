@@ -67,12 +67,14 @@ class KedroYamlReference(element: PsiElement) : PsiReferenceBase<PsiElement>(ele
      */
     private fun getYamlDataSetReference(): PsiElement? {
         return try {
-            val dataSetName: String = element.castSafelyTo<PyStringLiteralExpression>()?.text ?: "UNKNOWN"
+            val dataSetName: String = element.castSafelyTo<PyStringLiteralExpression>()?.text ?: "?"
             val service: KedroYamlCatalogService = KedroYamlCatalogService.getInstance(project = element.project)
-            service.dataSets
-                .filter { it.nameEqual(dataSetName) }
-                .mapNotNull { it.psiItem?.node?.psi }
-                .firstOrNull()
+            val dataSet: KedroDataSet? = service.getDataSetByName(dataSetName = dataSetName)
+            if (dataSet != null) {
+                dataSet.psiItem?.node?.psi
+            }
+            null
+
         } catch (e: Exception) {
             null
         }

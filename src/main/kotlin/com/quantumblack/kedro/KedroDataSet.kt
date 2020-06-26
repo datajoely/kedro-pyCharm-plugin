@@ -51,6 +51,14 @@ data class KedroDataSet(
         return name.trim().hashCode()
     }
 
+    fun isNull(): Boolean {
+       return name.trim() == "UNKNOWN_NAME"
+    }
+
+    fun isNotNull(): Boolean{
+        return !isNull()
+    }
+
     fun getAutoCompleteSuggestion(): LookupElementBuilder? {
         val layer: String? = if (!this.layer.isNullOrBlank()) " (${this.layer})" else ""
 

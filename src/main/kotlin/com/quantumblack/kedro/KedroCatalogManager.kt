@@ -24,11 +24,9 @@ class KedroCatalogManager : StartupActivity {
         val psiManager: PsiManager = PsiManager.getInstance(project)
 
         invokeAfterPsiEvents {
-            val yamlFiles: List<YAMLFile> = KedroDataCatalogUtilities.getKedroCatalogItems(project = project)
-            dataCatalogService.dataSets = KedroDataCatalogUtilities
-                .getKedroDataSets(yamlFiles = yamlFiles)
-                .values
-                .toMutableList()
+            val yamlFiles: List<YAMLFile> = KedroDataCatalogUtilities.getKedroCatalogYamlFiles(project = project)
+            updateDataSets(yamlFiles, dataCatalogService)
+
         }
 
         VirtualFileManager.getInstance().addAsyncFileListener(
@@ -86,24 +84,15 @@ class KedroCatalogManager : StartupActivity {
 
     private fun updateDataSets(changedYamlFiles: List<YAMLFile>, service: KedroYamlCatalogService) {
         invokeAfterPsiEvents {
-            val newKedroDataSets: MutableMap<String, KedroDataSet> =
-                KedroDataCatalogUtilities.getKedroDataSets(changedYamlFiles)
-            val iterator: MutableListIterator<KedroDataSet> = service.dataSets.listIterator()
-            while (iterator.hasNext()) {
-                val existingDataSet: KedroDataSet = iterator.next()
-                val swapDataSet: KedroDataSet? =
-                    newKedroDataSets.values.firstOrNull { it.nameEqual(existingDataSet.name) }
-                if (swapDataSet != null) {
-                    iterator.remove()
-                    iterator.add(swapDataSet)
-                }
-            }
+            val newKedroDataSets: Map<String, KedroDataSet> = KedroDataCatalogUtilities.getKedroDataSets(changedYamlFiles)
+            for (newDataSet: KedroDataSet in newKedroDataSets.values)  service.addOrReplaceDataSet(dataSet = newDataSet)
         }
     }
 
+
     private fun removeOldDataSets(changedYamlFiles: List<YAMLFile>, service: KedroYamlCatalogService) {
         invokeAfterPsiEvents {
-            val yamlKeyMap: Map<String, List<String>> = changedYamlFiles
+            val currentKeysOfChangedDataSetYamls: Map<String, List<String>> = changedYamlFiles
                 .map {
                     it.containingFile.name to YAMLUtil
                         .getTopLevelKeys(it)
@@ -112,17 +101,14 @@ class KedroCatalogManager : StartupActivity {
                 }
                 .toMap()
 
-            val iterator: MutableListIterator<KedroDataSet> = service.dataSets.listIterator()
-            while (iterator.hasNext()) {
+            val dataSetsStored: List<KedroDataSet> = currentKeysOfChangedDataSetYamls
+                .keys
+                .map{ filename: String -> service.getDataSetsByYaml(filename) }
+                .flatten()
 
-                val dataset: KedroDataSet = iterator.next()
-                if (dataset.location in yamlKeyMap.keys) {
-                    val currentYamlContents: List<String> = yamlKeyMap[dataset.location] ?: listOf()
-                    if (dataset.name !in currentYamlContents && service.dataSets.any { dataset.nameEqual(it.name) }) {
-                        iterator.remove()
-                    }
-                }
-            }
+            val toDelete: List<KedroDataSet> = dataSetsStored - service.getAllDataSets()
+            for (oldDataSet: KedroDataSet in toDelete) service.removeDataSet(dataSet = oldDataSet)
+
         }
 
     }

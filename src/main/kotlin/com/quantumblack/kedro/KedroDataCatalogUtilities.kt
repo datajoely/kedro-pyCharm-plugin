@@ -189,7 +189,7 @@ object KedroDataCatalogUtilities {
 
 
     }
-    fun getKedroCatalogItems(project: Project): List<YAMLFile> {
+    fun getKedroCatalogYamlFiles(project: Project): List<YAMLFile> {
         val psiManager: PsiManager = PsiManager.getInstance(project)
         return extensions
             .asSequence()
@@ -202,13 +202,13 @@ object KedroDataCatalogUtilities {
     }
 
 
-    fun getKedroDataSets(yamlFiles : List<YAMLFile>): MutableMap<String,KedroDataSet> {
+    fun getKedroDataSets(yamlFiles : List<YAMLFile>): Map<String, KedroDataSet> {
         return yamlFiles
             .map { extractKedroYamlDataSets(it) }
             .flatten()
             .map { it.name to it }
             .toMap()
-            .toMutableMap()
+
     }
 
 }
