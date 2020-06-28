@@ -21,7 +21,6 @@ class KedroCatalogManager : StartupActivity {
 
     private fun initialiseCatalogLoader(project: Project) {
         val dataCatalogService: KedroYamlCatalogService = KedroYamlCatalogService.getInstance(project)
-        val psiManager: PsiManager = PsiManager.getInstance(project)
 
         invokeAfterPsiEvents {
             val yamlFiles: List<YAMLFile> = KedroDataCatalogUtilities.getKedroCatalogYamlFiles(project = project)
@@ -56,6 +55,7 @@ class KedroCatalogManager : StartupActivity {
                                 }
                             if (projectFiles.count() == 0) return
                             invokeAfterPsiEvents {
+                                val psiManager: PsiManager = PsiManager.getInstance(project)
                                 val changedYamlFiles: List<YAMLFile> = projectFiles
                                     .asSequence()
                                     .filter { KedroDataCatalogUtilities.isKedroYamlFile(it, project) }

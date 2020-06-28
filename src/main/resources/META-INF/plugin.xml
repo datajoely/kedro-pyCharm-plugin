@@ -14,31 +14,32 @@
     <extensions defaultExtensionNs="com.intellij">
 
         <projectService
-                serviceImplementation="com.quantumblack.kedro.KedroYamlCatalogService" order="first"
-                preload="true"
+            serviceImplementation="com.quantumblack.kedro.KedroYamlCatalogService" order="first"
+            preload="true"
         />
+        <postStartupActivity implementation="com.quantumblack.kedro.KedroCatalogManager" order="first"/>
+
 
         <completion.contributor
-                language="Python"
-                implementationClass="com.quantumblack.kedro.KedroNodeClassAutoComplete"
-                order="first"
-
+            language="Python"
+            implementationClass="com.quantumblack.kedro.KedroNodeClassAutoComplete"
+            order="last"
         />
-        <psi.referenceContributor
-                language="Python"
-                implementation="com.quantumblack.kedro.KedroDataCatalogReference"
-                order="first"
-            />
+
+<!--        <psi.referenceContributor-->
+<!--            language="Python"-->
+<!--            implementation="com.quantumblack.kedro.KedroDataCatalogReference"-->
+<!--            order="last"-->
+<!--        />-->
 
         <annotator
             language="Python"
             implementationClass="com.quantumblack.kedro.KedroDataCatalogAnnotation"
-            />
+            order="last"
+        />
 
 
 
-
-        <postStartupActivity implementation="com.quantumblack.kedro.KedroCatalogManager" order="last"/>
 
     </extensions>
 </idea-plugin>

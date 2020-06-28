@@ -41,7 +41,7 @@ class KedroReferenceProvider : PsiReferenceProvider() {
     override fun getReferencesByElement(element: PsiElement, context: ProcessingContext): Array<KedroYamlReference> {
 
         if (KedroPsiUtilities.isKedroNodeCatalogParam(element, autoCompletePotential = false)) {
-            val references: Array<KedroYamlReference> = arrayOf(KedroYamlReference(element))
+            val references: Array<KedroYamlReference> = arrayOf()
             if (references.isNotEmpty()) {
                 return references
             }
@@ -67,14 +67,11 @@ class KedroYamlReference(element: PsiElement) : PsiReferenceBase<PsiElement>(ele
      */
     private fun getYamlDataSetReference(): PsiElement? {
         return try {
-            val dataSetName: String = element.castSafelyTo<PyStringLiteralExpression>()?.text ?: "?"
+            val dataSetName: String? = element.castSafelyTo<PyStringLiteralExpression>()?.text
             val service: KedroYamlCatalogService = KedroYamlCatalogService.getInstance(project = element.project)
-            val dataSet: KedroDataSet? = service.getDataSetByName(dataSetName = dataSetName)
-            if (dataSet != null) {
-                dataSet.psiItem?.node?.psi
-            }
-            null
-
+            val dataSet: KedroDataSet? = service.getDataSetByName(dataSetName = dataSetName ?: "?")
+            if (dataSet != null) { dataSet.psiItem?.node?.psi }
+            else null
         } catch (e: Exception) {
             null
         }
