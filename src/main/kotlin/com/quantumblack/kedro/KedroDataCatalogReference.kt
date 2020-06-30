@@ -74,7 +74,7 @@ class KedroYamlReference(element: PsiElement, private val service: KedroYamlCata
         return try {
             val dataSetName: String? = element.castSafelyTo<PyStringLiteralExpression>()?.text
             val dataSet: KedroDataSet? = service.getDataSetByName(dataSetName = dataSetName ?: "?")
-            if (dataSet != null) { dataSet.psiItem?.node?.psi } else null
+            if (dataSet != null) { dataSet.reference?.element?.node?.psi } else null
         } catch (e: Exception) {
             null
         }

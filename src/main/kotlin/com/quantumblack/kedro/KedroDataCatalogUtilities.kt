@@ -4,6 +4,8 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiManager
+import com.intellij.psi.SmartPointerManager
+import com.intellij.psi.SmartPsiElementPointer
 import com.intellij.psi.search.FilenameIndex
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.util.anyDescendantOfType
@@ -11,6 +13,7 @@ import com.intellij.psi.util.collectDescendantsOfType
 import com.intellij.psi.util.elementType
 import com.intellij.psi.util.parentsWithSelf
 import com.intellij.util.castSafelyTo
+import com.quantumblack.kedro.KedroPsiUtilities.determineActiveProject
 import org.jetbrains.yaml.YAMLElementTypes
 import org.jetbrains.yaml.YAMLUtil
 import org.jetbrains.yaml.psi.YAMLFile
@@ -22,6 +25,8 @@ import org.jetbrains.yaml.psi.impl.YAMLKeyValueImpl
 object KedroDataCatalogUtilities {
 
     private val extensions: List<String> = listOf("yml", "yaml")
+    private val project: Project = determineActiveProject()
+    private val smartPointerManager: SmartPointerManager = SmartPointerManager.getInstance(project)
 
     /**
      * This function will process YAML Psi elements and prepare them in a format ready to extract as
@@ -166,13 +171,15 @@ object KedroDataCatalogUtilities {
             placeHolders = placeHolders
         )
 
+
         // A list of KedroDataSet data class objects are created as a result
         return resolvedDataSets.mapNotNull {
+            val psiItem = (psiDataSets[it.key] ?: yamlFile.firstChild as YAMLKeyValue)
             KedroDataSet(
                 name = it.key,
                 type = it.value["type"].toString(),
                 location = psiDataSets[it.key]?.containingFile?.name.toString(),
-                psiItem = psiDataSets[it.key] ?: yamlFile.firstChild as YAMLKeyValue,
+                reference = smartPointerManager.createSmartPsiElementPointer(psiItem),
                 layer = it.value["layer"]
             )
         }

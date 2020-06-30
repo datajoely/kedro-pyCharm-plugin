@@ -2,7 +2,8 @@ package com.quantumblack.kedro
 
 import com.intellij.codeInsight.lookup.LookupElementBuilder
 import com.intellij.openapi.util.IconLoader
-import org.jetbrains.yaml.psi.YAMLKeyValue
+import com.intellij.psi.PsiElement
+import com.intellij.psi.SmartPsiElementPointer
 import java.io.Serializable
 
 /**
@@ -11,14 +12,14 @@ import java.io.Serializable
  * @property name The key of the dataset in the YAML file
  * @property type The type of the dataset
  * @property location The path of the YAML file
- * @property psiItem The PSI element referring to the dataset top level key
+ * @property reference The PSI element referring to the dataset top level key
  * @property layer The layer of dataset (if available)
  */
 data class KedroDataSet(
     val name: String = "UNKNOWN_NAME",
     val type: String = "UNKNOWN_TYPE",
     val location: String = "UNKNOWN_LOCATION",
-    val psiItem: YAMLKeyValue? = null,
+    val reference: SmartPsiElementPointer<PsiElement>? = null,
     val layer: String? = null
 ) : Serializable {
 
