@@ -1,7 +1,6 @@
 package com.quantumblack.kedro
 
 import com.intellij.openapi.application.ApplicationManager
-import com.intellij.openapi.application.ModalityState
 import com.intellij.openapi.project.DumbService
 import com.intellij.openapi.project.NoAccessDuringPsiEvents
 import com.intellij.openapi.project.Project
@@ -58,19 +57,32 @@ class KedroCatalogManager : StartupActivity {
                             .mapNotNull { it.castSafelyTo<YAMLFile>() }
                             .toList()
 
-                        updateDataSets(
-                            changedYamlFiles = changedYamlFiles,
-                            service = service
-                        )
-                        removeOldDataSets(
-                            changedYamlFiles = changedYamlFiles,
-                            service = service
-                        )
-
+                        ApplicationManager.getApplication().executeOnPooledThread {
+                            ApplicationManager.getApplication().runReadAction {
+                                updateCatalog(changedYamlFiles, service)
+                            }
+                        }
 
                     }
                 } catch (e: AlreadyDisposedException) {
                 }
+            }
+        }
+    }
+
+    private fun updateCatalog(changedYamlFiles: List<YAMLFile>, service: KedroYamlCatalogService) {
+
+        ApplicationManager.getApplication().executeOnPooledThread {
+            ApplicationManager.getApplication().runReadAction {
+
+                updateDataSets(
+                    changedYamlFiles = changedYamlFiles,
+                    service = service
+                )
+                removeOldDataSets(
+                    changedYamlFiles = changedYamlFiles,
+                    service = service
+                )
             }
         }
     }
@@ -104,7 +116,8 @@ class KedroCatalogManager : StartupActivity {
     private fun updateDataSets(changedYamlFiles: List<YAMLFile>, service: KedroYamlCatalogService) {
         invokeAfterPsiEvents {
             val newKedroDataSets: Map<String, KedroDataSet> = KedroDataCatalogUtilities.getDataSets(changedYamlFiles)
-            for (newDataSet: KedroDataSet in newKedroDataSets.values) service.addOrReplaceDataSet(dataSet = newDataSet)
+            for (newDataSet: KedroDataSet in newKedroDataSets.values)
+                service.addOrReplaceDataSet(dataSet = newDataSet)
         }
     }
 
@@ -136,6 +149,7 @@ class KedroCatalogManager : StartupActivity {
     override fun runActivity(project: Project) {
         if (ApplicationManager.getApplication().isUnitTestMode) return
         if (project.isDisposed) return
+
         DumbService.getInstance(project).smartInvokeLater {
             try {
                 initialiseCatalogLoader(project)
@@ -151,7 +165,7 @@ class KedroCatalogManager : StartupActivity {
                 else -> runnable()
             }
         }
-        ApplicationManager.getApplication().invokeLater(wrapper, ModalityState.defaultModalityState())
+        ApplicationManager.getApplication().invokeLater(wrapper)
     }
 
 }
