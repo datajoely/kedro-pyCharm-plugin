@@ -1,11 +1,9 @@
 package com.quantumblack.kedro
 
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.openapi.project.ProjectManager
+import com.intellij.openapi.wm.WindowManager
 import com.intellij.psi.PsiElement
-import com.intellij.psi.PsiManager
-import com.intellij.psi.search.FilenameIndex
-import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.util.elementType
 import com.intellij.psi.util.isAncestor
 import com.intellij.psi.util.parents
@@ -16,7 +14,7 @@ import com.jetbrains.python.PyTokenTypes
 import com.jetbrains.python.psi.PyExpression
 import com.jetbrains.python.psi.impl.PyCallExpressionImpl
 import com.jetbrains.python.psi.impl.PyKeywordArgumentImpl
-import org.jetbrains.yaml.psi.YAMLFile
+import java.awt.Window
 
 /**
  * This class exposes a way of detecting Kedro catalog params
@@ -181,5 +179,14 @@ object KedroPsiUtilities {
             ?.callee
             ?.name
             ?.contains(other = "node", ignoreCase = true) ?: false
+    }
+
+    fun determineActiveProject(): Project {
+        val projects: Array<Project> = ProjectManager.getInstance().openProjects
+        val activeWindow: Pair<Int, Window?> = projects.withIndex()
+            .map { (i: Int, p: Project) -> i to WindowManager.getInstance().suggestParentWindow(p) }
+            .first { (_: Int, p: Window?) -> p != null }
+        return projects[activeWindow.first]
+
     }
 }
