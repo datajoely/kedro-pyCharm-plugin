@@ -11,16 +11,13 @@ import com.intellij.psi.util.elementType
 import com.jetbrains.python.PyElementTypes
 import com.quantumblack.kedro.KedroPsiUtilities.determineActiveProject
 
-
 class KedroDataCatalogAnnotation : Annotator {
-
 
     private val project: Project = determineActiveProject()
     private val service: KedroYamlCatalogService = KedroYamlCatalogService.getInstance(project)
 
     override fun annotate(element: PsiElement, holder: AnnotationHolder) {
         if (KedroPsiUtilities.isKedroNodeCatalogParam(element, autoCompletePotential = false)) {
-
 
             if (element.elementType == PyElementTypes.STRING_LITERAL_EXPRESSION) {
                 val kedroDataSet: KedroDataSet? = service.getDataSetByName(element.text)

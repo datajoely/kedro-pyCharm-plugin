@@ -47,7 +47,6 @@ class KedroCatalogManager : StartupActivity {
                     val projectFiles: Sequence<VirtualFile> = getProjectFiles(events, project)
                     if (projectFiles.count() == 0) return
 
-
                     invokeAfterPsiEvents {
                         val psiManager: PsiManager = PsiManager.getInstance(project)
                         val changedYamlFiles: List<YAMLFile> = projectFiles
@@ -62,7 +61,6 @@ class KedroCatalogManager : StartupActivity {
                                 updateCatalog(changedYamlFiles, service)
                             }
                         }
-
                     }
                 } catch (e: AlreadyDisposedException) {
                 }
@@ -97,7 +95,6 @@ class KedroCatalogManager : StartupActivity {
                             it is VFileCopyEvent ||
                             it is VFileCreateEvent ||
                             it is VFileDeleteEvent
-
                 }.mapNotNull { it.file }
                 .filter {
                     try {
@@ -112,7 +109,6 @@ class KedroCatalogManager : StartupActivity {
         }
     }
 
-
     private fun updateDataSets(changedYamlFiles: List<YAMLFile>, service: KedroYamlCatalogService) {
         invokeAfterPsiEvents {
             val newKedroDataSets: Map<String, KedroDataSet> = KedroDataCatalogUtilities.getDataSets(changedYamlFiles)
@@ -120,7 +116,6 @@ class KedroCatalogManager : StartupActivity {
                 service.addOrReplaceDataSet(dataSet = newDataSet)
         }
     }
-
 
     private fun removeOldDataSets(changedYamlFiles: List<YAMLFile>, service: KedroYamlCatalogService) {
         invokeAfterPsiEvents {
@@ -141,9 +136,7 @@ class KedroCatalogManager : StartupActivity {
                 }.flatten()
 
             for (oldDataSet: KedroDataSet in toDelete) service.removeDataSet(dataSet = oldDataSet)
-
         }
-
     }
 
     override fun runActivity(project: Project) {
@@ -167,6 +160,4 @@ class KedroCatalogManager : StartupActivity {
         }
         ApplicationManager.getApplication().invokeLater(wrapper)
     }
-
 }
-

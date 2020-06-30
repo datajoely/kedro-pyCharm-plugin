@@ -22,10 +22,9 @@ data class KedroDataSet(
     val layer: String? = null
 ) : Serializable {
 
-    fun nameEqual(comparison:String): Boolean {
+    fun nameEqual(comparison: String): Boolean {
         val cleanComparison: String = comparison.replace(regex = Regex(pattern = "[\"']"), replacement = "")
         return cleanComparison == this.name
-
     }
 
     /**
@@ -52,10 +51,10 @@ data class KedroDataSet(
     }
 
     fun isNull(): Boolean {
-       return name.trim() == "UNKNOWN_NAME"
+        return name.trim() == "UNKNOWN_NAME"
     }
 
-    fun isNotNull(): Boolean{
+    fun isNotNull(): Boolean {
         return !isNull()
     }
 
@@ -71,6 +70,5 @@ data class KedroDataSet(
             .withTypeText(this.type.split(delimiters = *charArrayOf('.')).last() + layer)
             .withLookupString(this.name)
             .withLookupStrings(arrayListOf(this.layer ?: "kedro", "kedro"))
-
     }
 }

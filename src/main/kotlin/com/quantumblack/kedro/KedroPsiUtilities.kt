@@ -187,6 +187,5 @@ object KedroPsiUtilities {
             .map { (i: Int, p: Project) -> i to WindowManager.getInstance().suggestParentWindow(p) }
             .first { (_: Int, p: Window?) -> p != null }
         return projects[activeWindow.first]
-
     }
 }

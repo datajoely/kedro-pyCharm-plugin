@@ -133,8 +133,6 @@ object KedroDataCatalogUtilities {
         return dataSetsExplicitExtracted.plus(dataSetsWithAliasesExtracted.entries.map { it.toPair() })
     }
 
-
-
     /**
      * This function takes a `VirtualFile` which has been successfully cast to a `YamlFile` object and
      * extracts the information relevant to constructing an instance of a `KedroDataSet` data class object.
@@ -186,10 +184,8 @@ object KedroDataCatalogUtilities {
             .filterNotNull()
             .all { directoryComponent: String -> vf.path.contains(directoryComponent) }
         return isCorrectExtension && isLocation
-
-
     }
-    fun getKedroCatalogYamlFiles(project: Project, psiManager:PsiManager): List<YAMLFile> {
+    fun getKedroCatalogYamlFiles(project: Project, psiManager: PsiManager): List<YAMLFile> {
 
         return extensions
             .asSequence()
@@ -201,14 +197,11 @@ object KedroDataCatalogUtilities {
             .toList()
     }
 
-
-    fun getDataSets(yamlFiles : List<YAMLFile>): Map<String, KedroDataSet> {
+    fun getDataSets(yamlFiles: List<YAMLFile>): Map<String, KedroDataSet> {
         return yamlFiles
             .map { extractKedroYamlDataSets(it) }
             .flatten()
             .map { it.name to it }
             .toMap()
-
     }
-
 }

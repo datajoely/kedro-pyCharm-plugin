@@ -21,7 +21,7 @@ class KedroNodeClassAutoComplete : CompletionContributor() {
             object : CompletionProvider<CompletionParameters>() {
 
                 val project: Project = determineActiveProject()
-                val service :KedroYamlCatalogService = KedroYamlCatalogService.getInstance(project)
+                val service: KedroYamlCatalogService = KedroYamlCatalogService.getInstance(project)
 
                 /**
                  * This function checks if the `parameters` is part of a Kedro constructor/function

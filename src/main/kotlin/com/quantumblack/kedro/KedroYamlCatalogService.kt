@@ -13,7 +13,6 @@ class KedroYamlCatalogService : PersistentStateComponent<KedroYamlCatalogService
     private var dataSets: MutableList<KedroDataSet> = java.util.Collections.synchronizedList(mutableListOf())
     private val log: Logger = Logger.getInstance("kedro")
 
-
     override fun getState(): KedroYamlCatalogService {
         return this
     }
@@ -31,7 +30,6 @@ class KedroYamlCatalogService : PersistentStateComponent<KedroYamlCatalogService
             this.dataSets.add(dataSet)
             log.info("adding ${dataSet.name}")
         }
-
     }
 
     fun removeDataSet(dataSet: KedroDataSet) {
@@ -59,8 +57,5 @@ class KedroYamlCatalogService : PersistentStateComponent<KedroYamlCatalogService
         fun getInstance(project: Project?): KedroYamlCatalogService {
             return ServiceManager.getService(project!!, KedroYamlCatalogService::class.java)
         }
-
     }
-
-
 }
