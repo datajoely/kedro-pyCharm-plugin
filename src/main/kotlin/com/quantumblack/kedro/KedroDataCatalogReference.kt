@@ -12,6 +12,10 @@ import com.quantumblack.kedro.KedroPsiUtilities.determineActiveProject
  * This class provides references to the PyCharm lookup
  */
 class KedroDataCatalogReference : PsiReferenceContributor() {
+
+    private val project: Project = determineActiveProject()
+    private val service: KedroYamlCatalogService = KedroYamlCatalogService.getInstance(project = project)
+
     /**
      * Overriding this function scans elements which are PyStringLiteralExpressions and attempts
      * to add references to Kedro data catalog entries in the appropriate places
@@ -21,7 +25,7 @@ class KedroDataCatalogReference : PsiReferenceContributor() {
     override fun registerReferenceProviders(registrar: PsiReferenceRegistrar) {
         registrar.registerReferenceProvider(
             PlatformPatterns.psiElement(PyStringLiteralExpression::class.java),
-            KedroReferenceProvider()
+            KedroReferenceProvider(service)
         )
     }
 }
@@ -30,7 +34,7 @@ class KedroDataCatalogReference : PsiReferenceContributor() {
  * This class creates a reference provider which detects if the reference is Kedro catalog entry
  * and returns the appropriate YAML KeyValue
  */
-class KedroReferenceProvider : PsiReferenceProvider() {
+class KedroReferenceProvider(private val service: KedroYamlCatalogService) : PsiReferenceProvider() {
     /**
      * Thus function analyses the element in question and provides an array of references to
      * the various YAML KeyValue that can map to each string
@@ -41,9 +45,8 @@ class KedroReferenceProvider : PsiReferenceProvider() {
      * `PyStringLiteralExpression` being scanned
      */
     override fun getReferencesByElement(element: PsiElement, context: ProcessingContext): Array<KedroYamlReference> {
-
         if (KedroPsiUtilities.isKedroNodeCatalogParam(element, autoCompletePotential = false)) {
-            val references: Array<KedroYamlReference> = arrayOf()
+            val references: Array<KedroYamlReference> = arrayOf(KedroYamlReference(element,service))
             if (references.isNotEmpty()) {
                 return references
             }
@@ -59,9 +62,7 @@ class KedroReferenceProvider : PsiReferenceProvider() {
  * @constructor Is inherited from the PsIReferenceBase class
  * @param element The element to match against the Kedro data catalog datasets available
  */
-class KedroYamlReference(element: PsiElement) : PsiReferenceBase<PsiElement>(element) {
-
-    val project: Project = determineActiveProject()
+class KedroYamlReference(element: PsiElement, private val service: KedroYamlCatalogService) : PsiReferenceBase<PsiElement>(element) {
 
     /**
      * This function retrieves the string contents of the `PyStringLiteralExpression` and compares
@@ -72,7 +73,6 @@ class KedroYamlReference(element: PsiElement) : PsiReferenceBase<PsiElement>(ele
     private fun getYamlDataSetReference(): PsiElement? {
         return try {
             val dataSetName: String? = element.castSafelyTo<PyStringLiteralExpression>()?.text
-            val service: KedroYamlCatalogService = KedroYamlCatalogService.getInstance(project = project)
             val dataSet: KedroDataSet? = service.getDataSetByName(dataSetName = dataSetName ?: "?")
             if (dataSet != null) { dataSet.psiItem?.node?.psi }
             else null
