@@ -19,18 +19,17 @@
         />
         <postStartupActivity implementation="com.quantumblack.kedro.KedroCatalogManager" order="first"/>
 
-
         <completion.contributor
             language="Python"
             implementationClass="com.quantumblack.kedro.KedroNodeClassAutoComplete"
             order="last"
         />
 
-<!--        <psi.referenceContributor-->
-<!--            language="Python"-->
-<!--            implementation="com.quantumblack.kedro.KedroDataCatalogReference"-->
-<!--            order="last"-->
-<!--        />-->
+        <psi.referenceContributor
+            language="Python"
+            implementation="com.quantumblack.kedro.KedroDataCatalogReference"
+            order="last"
+        />
 
         <annotator
             language="Python"
