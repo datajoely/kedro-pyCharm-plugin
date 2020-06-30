@@ -189,8 +189,8 @@ object KedroDataCatalogUtilities {
 
 
     }
-    fun getKedroCatalogYamlFiles(project: Project): List<YAMLFile> {
-        val psiManager: PsiManager = PsiManager.getInstance(project)
+    fun getKedroCatalogYamlFiles(project: Project, psiManager:PsiManager): List<YAMLFile> {
+
         return extensions
             .asSequence()
             .map { FilenameIndex.getAllFilesByExt(project, it, GlobalSearchScope.projectScope(project)) }
@@ -202,7 +202,7 @@ object KedroDataCatalogUtilities {
     }
 
 
-    fun getKedroDataSets(yamlFiles : List<YAMLFile>): Map<String, KedroDataSet> {
+    fun getDataSets(yamlFiles : List<YAMLFile>): Map<String, KedroDataSet> {
         return yamlFiles
             .map { extractKedroYamlDataSets(it) }
             .flatten()
