@@ -6,6 +6,7 @@ import com.intellij.patterns.PlatformPatterns
 import com.intellij.psi.PsiElement
 import com.intellij.util.ProcessingContext
 import com.jetbrains.python.PythonLanguage
+import com.quantumblack.kedro.KedroPsiUtilities.determineActiveProject
 import org.jetbrains.annotations.NotNull
 
 /**
@@ -18,6 +19,9 @@ class KedroNodeClassAutoComplete : CompletionContributor() {
             CompletionType.BASIC,
             PlatformPatterns.psiElement().withLanguage(PythonLanguage.INSTANCE),
             object : CompletionProvider<CompletionParameters>() {
+
+                val project: Project = determineActiveProject()
+                val service :KedroYamlCatalogService = KedroYamlCatalogService.getInstance(project)
 
                 /**
                  * This function checks if the `parameters` is part of a Kedro constructor/function
@@ -33,11 +37,7 @@ class KedroNodeClassAutoComplete : CompletionContributor() {
                     resultSet: @NotNull CompletionResultSet
                 ) {
                     val element: PsiElement? = parameters.originalPosition
-                    val project: Project? = parameters.editor.project
-
                     if (element != null) {
-
-                        val service :KedroYamlCatalogService = KedroYamlCatalogService.getInstance(project!!)
                         if (KedroPsiUtilities.isKedroNodeCatalogParam(
                                 element = element,
                                 autoCompletePotential = true

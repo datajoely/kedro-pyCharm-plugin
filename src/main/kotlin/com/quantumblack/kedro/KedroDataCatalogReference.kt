@@ -1,10 +1,12 @@
 package com.quantumblack.kedro
 
+import com.intellij.openapi.project.Project
 import com.intellij.patterns.PlatformPatterns
 import com.intellij.psi.*
 import com.intellij.util.ProcessingContext
 import com.intellij.util.castSafelyTo
 import com.jetbrains.python.psi.PyStringLiteralExpression
+import com.quantumblack.kedro.KedroPsiUtilities.determineActiveProject
 
 /**
  * This class provides references to the PyCharm lookup
@@ -59,6 +61,8 @@ class KedroReferenceProvider : PsiReferenceProvider() {
  */
 class KedroYamlReference(element: PsiElement) : PsiReferenceBase<PsiElement>(element) {
 
+    val project: Project = determineActiveProject()
+
     /**
      * This function retrieves the string contents of the `PyStringLiteralExpression` and compares
      * it to the list of data set names provided by the `KedroDataCatalogManager` singleton
@@ -68,7 +72,7 @@ class KedroYamlReference(element: PsiElement) : PsiReferenceBase<PsiElement>(ele
     private fun getYamlDataSetReference(): PsiElement? {
         return try {
             val dataSetName: String? = element.castSafelyTo<PyStringLiteralExpression>()?.text
-            val service: KedroYamlCatalogService = KedroYamlCatalogService.getInstance(project = element.project)
+            val service: KedroYamlCatalogService = KedroYamlCatalogService.getInstance(project = project)
             val dataSet: KedroDataSet? = service.getDataSetByName(dataSetName = dataSetName ?: "?")
             if (dataSet != null) { dataSet.psiItem?.node?.psi }
             else null
