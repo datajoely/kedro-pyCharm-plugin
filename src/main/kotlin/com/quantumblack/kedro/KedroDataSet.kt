@@ -66,7 +66,7 @@ data class KedroDataSet(
             .create("\"${this.name}\"")
             .bold()
             .withPresentableText(this.name)
-            .withCaseSensitivity(false)
+            .withCaseSensitivity(true)
             .withIcon(IconLoader.getIcon("/icons/pluginIcon_dark.svg"))
             .withTypeText(this.type.split(delimiters = *charArrayOf('.')).last() + layer)
             .withLookupString(this.name)
