@@ -1,6 +1,7 @@
 package com.quantumblack.kedro
 
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.application.ModalityState
 import com.intellij.openapi.project.DumbService
 import com.intellij.openapi.project.NoAccessDuringPsiEvents
 import com.intellij.openapi.project.Project
@@ -23,76 +24,94 @@ class KedroCatalogManager : StartupActivity {
         val dataCatalogService: KedroYamlCatalogService = KedroYamlCatalogService.getInstance(project)
 
         invokeAfterPsiEvents {
-            val yamlFiles: List<YAMLFile> = KedroDataCatalogUtilities.getKedroCatalogYamlFiles(project = project)
+            val yamlFiles: List<YAMLFile> = KedroDataCatalogUtilities.getKedroCatalogYamlFiles(
+                project = project,
+                psiManager = PsiManager.getInstance(project)
+            )
             updateDataSets(yamlFiles, dataCatalogService)
-
         }
 
         VirtualFileManager.getInstance().addAsyncFileListener(
-
-            { events: MutableList<out VFileEvent> ->
-                object : AsyncFileListener.ChangeApplier {
-
-                    override fun afterVfsChange() {
-                        if (project.isDisposed) return
-                        try {
-                            val projectFiles: Sequence<VirtualFile> = events
-                                .asSequence()
-                                .filter {
-                                    it is VFileContentChangeEvent ||
-                                            it is VFileMoveEvent ||
-                                            it is VFileCopyEvent ||
-                                            it is VFileCreateEvent ||
-                                            it is VFileDeleteEvent
-
-                                }.mapNotNull { it.file }
-                                .filter {
-                                    try {
-                                        ProjectFileIndex.getInstance(project).isInContent(it)
-                                    } catch (e: AlreadyDisposedException) {
-                                        false
-                                    }
-                                }
-                            if (projectFiles.count() == 0) return
-                            invokeAfterPsiEvents {
-                                val psiManager: PsiManager = PsiManager.getInstance(project)
-                                val changedYamlFiles: List<YAMLFile> = projectFiles
-                                    .asSequence()
-                                    .filter { KedroDataCatalogUtilities.isKedroYamlFile(it, project) }
-                                    .mapNotNull { psiManager.findFile(it) }
-                                    .mapNotNull { it.castSafelyTo<YAMLFile>() }
-                                    .toList()
-
-                                updateDataSets(
-                                    changedYamlFiles = changedYamlFiles,
-                                    service = dataCatalogService
-                                )
-                                removeOldDataSets(
-                                    changedYamlFiles = changedYamlFiles,
-                                    service = dataCatalogService
-                                )
-
-                            }
-                        } catch (e: AlreadyDisposedException) {
-                        }
-                    }
-                }
-            },
-            {}
+            { events: MutableList<out VFileEvent> -> eventHandler(project, events, dataCatalogService) },
+            { }
         )
     }
 
+    private fun eventHandler(project: Project, events: MutableList<out VFileEvent>, service: KedroYamlCatalogService):
+            AsyncFileListener.ChangeApplier {
+        return object : AsyncFileListener.ChangeApplier {
+
+            override fun beforeVfsChange() {
+                if (project.isDisposed) return
+                try {
+
+                    val projectFiles: Sequence<VirtualFile> = getProjectFiles(events, project)
+                    if (projectFiles.count() == 0) return
+
+
+                    invokeAfterPsiEvents {
+                        val psiManager: PsiManager = PsiManager.getInstance(project)
+                        val changedYamlFiles: List<YAMLFile> = projectFiles
+                            .asSequence()
+                            .filter { KedroDataCatalogUtilities.isKedroYamlFile(it, project) }
+                            .mapNotNull { psiManager.findFile(it) }
+                            .mapNotNull { it.castSafelyTo<YAMLFile>() }
+                            .toList()
+
+                        updateDataSets(
+                            changedYamlFiles = changedYamlFiles,
+                            service = service
+                        )
+                        removeOldDataSets(
+                            changedYamlFiles = changedYamlFiles,
+                            service = service
+                        )
+
+
+                    }
+                } catch (e: AlreadyDisposedException) {
+                }
+            }
+        }
+    }
+
+    private fun getProjectFiles(events: MutableList<out VFileEvent>, project: Project): Sequence<VirtualFile> {
+        try {
+            return events
+                .asSequence()
+                .filter {
+                    it is VFileContentChangeEvent ||
+                            it is VFileMoveEvent ||
+                            it is VFileCopyEvent ||
+                            it is VFileCreateEvent ||
+                            it is VFileDeleteEvent
+
+                }.mapNotNull { it.file }
+                .filter {
+                    try {
+                        ProjectFileIndex.getInstance(project).isInContent(it)
+                    } catch (e: AlreadyDisposedException) {
+                        false
+                    }
+                }
+        } catch (e: Exception) {
+            println(e)
+            return sequenceOf()
+        }
+    }
+
+
     private fun updateDataSets(changedYamlFiles: List<YAMLFile>, service: KedroYamlCatalogService) {
         invokeAfterPsiEvents {
-            val newKedroDataSets: Map<String, KedroDataSet> = KedroDataCatalogUtilities.getKedroDataSets(changedYamlFiles)
-            for (newDataSet: KedroDataSet in newKedroDataSets.values)  service.addOrReplaceDataSet(dataSet = newDataSet)
+            val newKedroDataSets: Map<String, KedroDataSet> = KedroDataCatalogUtilities.getDataSets(changedYamlFiles)
+            for (newDataSet: KedroDataSet in newKedroDataSets.values) service.addOrReplaceDataSet(dataSet = newDataSet)
         }
     }
 
 
     private fun removeOldDataSets(changedYamlFiles: List<YAMLFile>, service: KedroYamlCatalogService) {
         invokeAfterPsiEvents {
-            val currentKeysOfChangedDataSetYamls: Map<String, List<String>> = changedYamlFiles
+            val newKeysForChangedYamlFiles: Map<String, List<String>> = changedYamlFiles
                 .map {
                     it.containingFile.name to YAMLUtil
                         .getTopLevelKeys(it)
@@ -101,12 +120,13 @@ class KedroCatalogManager : StartupActivity {
                 }
                 .toMap()
 
-            val dataSetsStored: List<KedroDataSet> = currentKeysOfChangedDataSetYamls
-                .keys
-                .map{ filename: String -> service.getDataSetsByYaml(filename) }
-                .flatten()
+            val toDelete: List<KedroDataSet> =
+                newKeysForChangedYamlFiles.map { (catalogName: String, currentDataSetsInYaml: List<String>) ->
+                    val existingDataSetsForYaml: List<String> = service.getDataSetsByYaml(catalogName).map { it.name }
+                    val delta: List<String> = (existingDataSetsForYaml - currentDataSetsInYaml)
+                    delta.mapNotNull { service.getDataSetByName(it) }
+                }.flatten()
 
-            val toDelete: List<KedroDataSet> = dataSetsStored - service.getAllDataSets()
             for (oldDataSet: KedroDataSet in toDelete) service.removeDataSet(dataSet = oldDataSet)
 
         }
@@ -131,7 +151,7 @@ class KedroCatalogManager : StartupActivity {
                 else -> runnable()
             }
         }
-        ApplicationManager.getApplication().invokeLater(wrapper, { false })
+        ApplicationManager.getApplication().invokeLater(wrapper, ModalityState.defaultModalityState())
     }
 
 }
