@@ -23,8 +23,6 @@ class KedroDataCatalogAnnotation : Annotator {
 
 
             if (element.elementType == PyElementTypes.STRING_LITERAL_EXPRESSION) {
-
-
                 val kedroDataSet: KedroDataSet? = service.getDataSetByName(element.text)
 
                 if (kedroDataSet != null) {
